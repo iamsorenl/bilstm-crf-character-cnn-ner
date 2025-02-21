@@ -4,24 +4,13 @@ from torch.nn.utils.rnn import pad_sequence
 from collections import Counter
 import sys
 
-# Special tags for CRF compatibility
-PAD_TAG = "<PAD>"
+# Tags for CRF compatibility
 START_TAG = "<START>"
 STOP_TAG = "<STOP>"
-UNK_TOKEN = "<UNK>"
+O_TAG = "O"  # Use "O" for padding and non-entity tags
 
 # ------------------------- Read CoNLL File -------------------------
 def read_conll_file(filepath, with_labels=True):
-    """
-    Reads a CoNLL formatted file.
-
-    Args:
-        filepath (str): Path to the CoNLL file.
-        with_labels (bool): True if the file has tokens and labels (train), False if only tokens (dev/test).
-
-    Returns:
-        list: List of (tokens, labels) if with_labels=True else (tokens, []).
-    """
     data = []
     tokens, labels = [], []
 
@@ -29,33 +18,27 @@ def read_conll_file(filepath, with_labels=True):
         for line_num, line in enumerate(file, start=1):
             line = line.strip()
 
-            # Sentence boundary
-            if not line:
-                if tokens:  # If sentence tokens exist, add them
+            if not line:  # Sentence boundary
+                if tokens:
                     data.append((tokens, labels if with_labels else []))
                     tokens, labels = [], []
                 continue
 
-            parts = line.split('\t')  # Expecting tab-separated
+            parts = line.split('\t')
 
             if with_labels:
-                # Expecting 2 columns: token and label
                 if len(parts) == 2:
                     token, label = parts
                     tokens.append(token.strip())
                     labels.append(label.strip())
                 else:
-                    print(f"File: {filepath} Warning (Line {line_num}): Expected 2 columns but got {len(parts)} - {line}")
-
+                    print(f"Warning (Line {line_num}): Expected 2 columns but got {len(parts)}")
             else:
-                # Expecting only 1 column: token
                 if len(parts) == 1:
-                    token = parts[0].strip()
-                    tokens.append(token)
+                    tokens.append(parts[0].strip())
                 else:
-                    print(f"File: {filepath} Warning (Line {line_num}): Expected 1 column but got {len(parts)} - {line}")
+                    print(f"Warning (Line {line_num}): Expected 1 column but got {len(parts)}")
 
-    # Catch sentences without trailing newline
     if tokens:
         data.append((tokens, labels if with_labels else []))
 
@@ -72,17 +55,14 @@ def build_vocab(data, min_freq=1):
             char_counter.update(token)
         label_counter.update(labels)
 
-    token_vocab = {PAD_TAG: 0, UNK_TOKEN: 1}
-    for token, freq in token_counter.items():
-        if freq >= min_freq:
-            token_vocab[token] = len(token_vocab)
+    # Token vocab (no UNK, no PAD)
+    token_vocab = {token: idx for idx, (token, _) in enumerate(token_counter.items(), start=0)}
 
-    char_vocab = {PAD_TAG: 0, UNK_TOKEN: 1}
-    for char, freq in char_counter.items():
-        if freq >= min_freq:
-            char_vocab[char] = len(char_vocab)
+    # Char vocab
+    char_vocab = {char: idx for idx, (char, _) in enumerate(char_counter.items(), start=0)}
 
-    label_vocab = {PAD_TAG: 0, START_TAG: 1, STOP_TAG: 2}
+    # Label vocab: O used as padding, plus START and STOP
+    label_vocab = {O_TAG: 0, START_TAG: 1, STOP_TAG: 2}
     for label in label_counter:
         if label not in label_vocab:
             label_vocab[label] = len(label_vocab)
@@ -93,9 +73,9 @@ def build_vocab(data, min_freq=1):
 def encode_data(data, token_vocab, char_vocab, label_vocab):
     encoded_data = []
     for tokens, labels in data:
-        token_ids = [token_vocab.get(token, token_vocab[UNK_TOKEN]) for token in tokens]
-        char_ids = [[char_vocab.get(char, char_vocab[UNK_TOKEN]) for char in token] for token in tokens]
-        label_ids = [label_vocab.get(label, label_vocab[PAD_TAG]) for label in labels] if labels else [label_vocab[PAD_TAG]] * len(tokens)
+        token_ids = [token_vocab.get(token, token_vocab.get(O_TAG, 0)) for token in tokens]
+        char_ids = [[char_vocab.get(char, 0) for char in token] for token in tokens]
+        label_ids = [label_vocab.get(label, label_vocab[O_TAG]) for label in labels] if labels else [label_vocab[O_TAG]] * len(tokens)
 
         if labels and len(token_ids) != len(label_ids):
             print("Warning: Mismatched token and label lengths.")
@@ -110,18 +90,18 @@ def pad_sequences(batch, token_vocab, char_vocab, label_vocab):
 
     token_tensors = [torch.tensor(seq, dtype=torch.long) for seq in tokens]
     label_tensors = [torch.tensor(seq, dtype=torch.long) for seq in labels]
-    
-    tokens_padded = pad_sequence(token_tensors, batch_first=True, padding_value=token_vocab[PAD_TAG])
-    labels_padded = pad_sequence(label_tensors, batch_first=True, padding_value=label_vocab[PAD_TAG])
+
+    tokens_padded = pad_sequence(token_tensors, batch_first=True, padding_value=0)  # Padding with index 0 (O)
+    labels_padded = pad_sequence(label_tensors, batch_first=True, padding_value=label_vocab[O_TAG])
 
     max_word_len = max(len(char_seq) for sent in chars for char_seq in sent)
     char_tensors = [
         torch.tensor(
-            [char_seq + [char_vocab[PAD_TAG]] * (max_word_len - len(char_seq)) for char_seq in sent],
+            [char_seq + [0] * (max_word_len - len(char_seq)) for char_seq in sent],
             dtype=torch.long
         ) for sent in chars
     ]
-    chars_padded = pad_sequence(char_tensors, batch_first=True, padding_value=char_vocab[PAD_TAG])
+    chars_padded = pad_sequence(char_tensors, batch_first=True, padding_value=0)
 
     lengths = torch.tensor([len(seq) for seq in tokens], dtype=torch.long)
     return tokens_padded, chars_padded, labels_padded, lengths
@@ -139,7 +119,7 @@ class NERDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
-        return self.data[idx]  # Returns (token_ids, char_ids, label_ids)
+        return self.data[idx]
 
 # ------------------------- Main Function (Testing) -------------------------
 def main(filepath, with_labels=True):
@@ -165,7 +145,7 @@ def main(filepath, with_labels=True):
         print("Chars padded shape:", chars_padded.shape)
         print("Labels padded shape:", labels_padded.shape)
         print("Sentence lengths:", lengths)
-        break  # Only check the first batch for debugging
+        break
 
 if __name__ == "__main__":
     if len(sys.argv) not in [2, 3]:
