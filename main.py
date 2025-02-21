@@ -24,37 +24,58 @@ def train(model, data_loader, optimizer, epoch, total_epochs):
 
     print(f"✅ Epoch {epoch + 1}/{total_epochs} - Average Loss: {avg_loss:.4f}")
 
-# ---------------------- Evaluation Function ----------------------
-def evaluate(model, data_loader, label_vocab):
+# ---------------------- Prediction Generation Function ----------------------
+def generate_predictions(model, data_loader, label_vocab, input_filepath, output_path):
     model.eval()
-    print("\n🔎 Evaluating Model...")
-    with torch.no_grad():
-        progress_bar = tqdm(data_loader, desc="Evaluating", leave=False)
-        for tokens_padded, chars_padded, labels_padded, lengths in progress_bar:
-            score, predictions = model(tokens_padded, chars_padded, lengths)
-            progress_bar.set_postfix({"Score": f"{score.mean().item():.4f}"})
-            print("\n🔢 Predicted Tags:", predictions[0])
-            print("🎯 Actual Tags:", labels_padded[0][:lengths[0]].tolist())
-            break  # Only display first batch for brevity
+    idx_to_label = {v: k for k, v in label_vocab.items()}  # Map indices to labels
+
+    print(f"\n📝 Generating predictions -> {output_path}")
+    
+    # Read original tokens from the input file
+    with open(input_filepath, 'r', encoding='utf-8') as f_in:
+        raw_sentences = [line.strip() for line in f_in.read().strip().split('\n\n')]
+        sentences = [sentence.split('\n') for sentence in raw_sentences]
+
+    with open(output_path, "w", encoding='utf-8') as f_out:
+        with torch.no_grad():
+            progress_bar = tqdm(data_loader, desc="Predicting", leave=False)
+            sentence_idx = 0
+
+            for tokens_padded, chars_padded, labels_padded, lengths in progress_bar:
+                _, predictions = model(tokens_padded, chars_padded, lengths)
+
+                for batch_idx, length in enumerate(lengths):
+                    pred_tags = predictions[batch_idx][:length]
+                    original_tokens = sentences[sentence_idx]
+
+                    for token, tag_idx in zip(original_tokens, pred_tags):
+                        pred_label = idx_to_label[tag_idx]
+                        f_out.write(f"{token}\t{pred_label}\n")
+
+                    f_out.write("\n")  # Sentence boundary
+                    sentence_idx += 1
+
+    print("✅ Predictions saved successfully.")
 
 # ---------------------- Data Preparation ----------------------
-def load_data(filepath, batch_size):
-    data = read_conll_file(filepath)
-    token_vocab, char_vocab, label_vocab = build_vocab(data)  # Ensure char_vocab is built
-    encoded_data = encode_data(data, token_vocab, char_vocab, label_vocab)  # Include char encoding
+def load_data(filepath, batch_size, with_labels=True):
+    data = read_conll_file(filepath, with_labels=with_labels)  # Pass the correct flag
+    token_vocab, char_vocab, label_vocab = build_vocab(data)
+    encoded_data = encode_data(data, token_vocab, char_vocab, label_vocab)
     dataset = NERDataset(encoded_data)
     data_loader = DataLoader(
         dataset,
         batch_size=batch_size,
         collate_fn=collate_fn(token_vocab, char_vocab, label_vocab),
-        shuffle=True
+        shuffle=False
     )
     return data_loader, token_vocab, char_vocab, label_vocab
 
 # ---------------------- Main Execution ----------------------
-def main(train_filepath, model_output_path):
+def main(train_filepath, prediction_input_filepath, prediction_output_path):
     print("📂 Loading and preprocessing training data...")
-    train_loader, token_vocab, char_vocab, label_vocab = load_data(train_filepath, BATCH_SIZE)
+    train_loader, token_vocab, char_vocab, label_vocab = load_data(train_filepath, BATCH_SIZE, with_labels=True)
+
     print(f"🔡 Token vocab size: {len(token_vocab)} | 🔠 Char vocab size: {len(char_vocab)} | 🏷️ Label vocab size: {len(label_vocab)}")
 
     print("\n🚀 Initializing model...")
@@ -67,21 +88,30 @@ def main(train_filepath, model_output_path):
         char_out_dim=CHAR_OUT_DIM,
         hidden_dim=HIDDEN_DIM
     )
+
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
     print("\n🏋️ Starting training...")
     for epoch in range(EPOCHS):
         train(model, train_loader, optimizer, epoch, EPOCHS)
 
-    torch.save(model.state_dict(), model_output_path)
-    print(f"\n💾 Model saved to: {model_output_path}")
+    print("\n🔎 Training complete. Generating predictions...")
+
+    # Load dev/test data for prediction
+    prediction_loader, _, _, _ = load_data(prediction_input_filepath, BATCH_SIZE, with_labels=False)
+    generate_predictions(model, prediction_loader, label_vocab, prediction_input_filepath, prediction_output_path)
 
 # ---------------------- CLI Entry Point ----------------------
 if __name__ == "__main__":
     import sys
-    if len(sys.argv) < 3:
-        print("\nUsage: python main.py <train_filepath> <model_output_path>")
-    else:
-        train_filepath = sys.argv[1]
-        model_output_path = sys.argv[2]
-        main(train_filepath, model_output_path)
+
+    if len(sys.argv) != 4:
+        print("\nUsage: python main.py <train_filepath> <prediction_input_filepath> <prediction_output_path>")
+        print("Example: python main.py A2-data/train A2-data/dev dev.predictions")
+        sys.exit(1)
+
+    train_filepath = sys.argv[1]
+    prediction_input_filepath = sys.argv[2]
+    prediction_output_path = sys.argv[3]
+
+    main(train_filepath, prediction_input_filepath, prediction_output_path)
