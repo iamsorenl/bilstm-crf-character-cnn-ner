@@ -42,7 +42,8 @@ class BiLSTM_CRF(nn.Module):
         self.lstm = nn.LSTM(
             input_size=self.lstm_input_dim,
             hidden_size=hidden_dim // 2,
-            num_layers=1,
+            num_layers=2,
+            dropout=0.1,
             bidirectional=True,
             batch_first=True
         )
