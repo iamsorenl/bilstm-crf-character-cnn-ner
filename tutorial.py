@@ -1,30 +1,71 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.utils.data import DataLoader, Dataset
+from torch.nn.utils.rnn import pad_sequence
+from tqdm import tqdm  # 🚀 Progress bar
 
-# Set manual seed for reproducibility
 torch.manual_seed(1234)
 
-# Special tags and hyperparameters
+# ---------------------------
+# Hyperparameters
+# ---------------------------
 START_TAG = "<START>"
 STOP_TAG = "<STOP>"
+PAD_IDX = 0
 EMBEDDING_DIM = 5
 HIDDEN_DIM = 4
-NUM_EPOCHS = 10
 BATCH_SIZE = 16
+NUM_EPOCHS = 10
+
+# ---------------------------
+# Detect if GPU is available
+# ---------------------------
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"✅ Using device: {DEVICE}")
+
+# ---------------------------
+# Utility Functions
+# ---------------------------
 
 def argmax(vec):
     _, idx = torch.max(vec, 1)
     return idx.item()
 
 def prepare_sequence(seq, to_ix):
-    idxs = [to_ix.get(w, to_ix.setdefault("<UNK>", len(to_ix))) for w in seq]
-    return torch.tensor(idxs, dtype=torch.long)
+    return torch.tensor([to_ix.get(w, to_ix["<UNK>"]) for w in seq], dtype=torch.long, device=DEVICE)
 
 def log_sum_exp(vec):
     max_score = vec[0, argmax(vec)]
-    max_score_broadcast = max_score.view(1, -1).expand(1, vec.size()[1])
-    return max_score + torch.log(torch.sum(torch.exp(vec - max_score_broadcast)))
+    return (max_score + torch.log(torch.sum(torch.exp(vec - max_score)))).unsqueeze(0)
+
+def collate_fn(batch):
+    sentences, tags = zip(*batch)
+    sentence_tensors = [prepare_sequence(s, word_to_ix) for s in sentences]
+    tag_tensors = [torch.tensor([tag_to_ix[t] for t in ts], dtype=torch.long, device=DEVICE) for ts in tags]
+    lengths = torch.tensor([len(s) for s in sentences], device=DEVICE)
+
+    padded_sentences = pad_sequence(sentence_tensors, batch_first=True, padding_value=PAD_IDX)
+    padded_tags = pad_sequence(tag_tensors, batch_first=True, padding_value=PAD_IDX)
+    return padded_sentences, padded_tags, lengths
+
+# ---------------------------
+# Dataset Class
+# ---------------------------
+
+class SentenceDataset(Dataset):
+    def __init__(self, data):
+        self.data = data
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        return self.data[idx]
+
+# ---------------------------
+# BiLSTM-CRF Model
+# ---------------------------
 
 class BiLSTM_CRF(nn.Module):
     def __init__(self, vocab_size, tag_to_ix, embedding_dim, hidden_dim):
@@ -37,68 +78,37 @@ class BiLSTM_CRF(nn.Module):
         self.word_embeds = nn.Embedding(vocab_size, embedding_dim)
         self.lstm = nn.LSTM(embedding_dim, hidden_dim // 2, num_layers=1, bidirectional=True)
         self.hidden2tag = nn.Linear(hidden_dim, self.tagset_size)
-        
+
         self.transitions = nn.Parameter(torch.randn(self.tagset_size, self.tagset_size))
-        self.transitions.data[tag_to_ix[START_TAG], :] = -10000
-        self.transitions.data[:, tag_to_ix[STOP_TAG]] = -10000
+        self.transitions.data[self.tag_to_ix[START_TAG], :] = -10000
+        self.transitions.data[:, self.tag_to_ix[STOP_TAG]] = -10000
 
     def _forward_alg(self, feats):
-        init_alphas = torch.full((1, self.tagset_size), -10000.)
+        init_alphas = torch.full((1, self.tagset_size), -10000., device=DEVICE)
         init_alphas[0][self.tag_to_ix[START_TAG]] = 0.
 
         forward_var = init_alphas
         for feat in feats:
-            alphas_t = []
-            for next_tag in range(self.tagset_size):
-                emit_score = feat[next_tag].view(1, -1).expand(1, self.tagset_size)
-                trans_score = self.transitions[next_tag].view(1, -1)
-                next_tag_var = forward_var + trans_score + emit_score
-                alphas_t.append(log_sum_exp(next_tag_var).view(1))
-            forward_var = torch.cat(alphas_t).view(1, -1)
-
+            alphas_t = [
+                log_sum_exp(forward_var + self.transitions[next_tag] + feat[next_tag])
+                for next_tag in range(self.tagset_size)
+            ]
+            forward_var = torch.cat(alphas_t).view(1, -1)  # No more error here
         terminal_var = forward_var + self.transitions[self.tag_to_ix[STOP_TAG]]
         return log_sum_exp(terminal_var)
 
     def _get_lstm_features(self, sentence):
-        embeds = self.word_embeds(sentence).view(len(sentence), 1, -1)
+        embeds = self.word_embeds(sentence).unsqueeze(1)
         lstm_out, _ = self.lstm(embeds)
         lstm_out = lstm_out.view(len(sentence), self.hidden_dim)
         return self.hidden2tag(lstm_out)
 
     def _score_sentence(self, feats, tags):
-        score = torch.zeros(1)
-        tags = torch.cat([torch.tensor([self.tag_to_ix[START_TAG]], dtype=torch.long), tags])
+        score = torch.zeros(1, device=DEVICE)
+        tags = torch.cat([torch.tensor([self.tag_to_ix[START_TAG]], dtype=torch.long, device=DEVICE), tags])
         for i, feat in enumerate(feats):
             score += self.transitions[tags[i + 1], tags[i]] + feat[tags[i + 1]]
         return score + self.transitions[self.tag_to_ix[STOP_TAG], tags[-1]]
-
-    def _viterbi_decode(self, feats):
-        backpointers = []
-        forward_var = torch.full((1, self.tagset_size), -10000.)
-        forward_var[0][self.tag_to_ix[START_TAG]] = 0
-
-        for feat in feats:
-            bptrs_t, viterbivars_t = [], []
-            for next_tag in range(self.tagset_size):
-                next_tag_var = forward_var + self.transitions[next_tag]
-                best_tag_id = argmax(next_tag_var)
-                bptrs_t.append(best_tag_id)
-                viterbivars_t.append(next_tag_var[0][best_tag_id].view(1))
-            forward_var = (torch.cat(viterbivars_t) + feat).view(1, -1)
-            backpointers.append(bptrs_t)
-
-        terminal_var = forward_var + self.transitions[self.tag_to_ix[STOP_TAG]]
-        best_tag_id = argmax(terminal_var)
-        path_score = terminal_var[0][best_tag_id]
-
-        best_path = [best_tag_id]
-        for bptrs_t in reversed(backpointers):
-            best_tag_id = bptrs_t[best_tag_id]
-            best_path.append(best_tag_id)
-        best_path.pop()
-        best_path.reverse()
-
-        return path_score, best_path
 
     def neg_log_likelihood(self, sentence, tags):
         feats = self._get_lstm_features(sentence)
@@ -106,69 +116,122 @@ class BiLSTM_CRF(nn.Module):
 
     def forward(self, sentence):
         lstm_feats = self._get_lstm_features(sentence)
-        return self._viterbi_decode(lstm_feats)
+        return lstm_feats
 
-# -------------------------------------------
-#               MAIN FUNCTION
-# -------------------------------------------
-def main():
+# ---------------------------
+# Data Processing
+# ---------------------------
 
-    # File paths
-    file_paths = {
-        "train": "A2-data/train",
-        "dev": "A2-data/dev",
-        "test": "A2-data/test",
-        "dev_predictions": "A2-data/dev.predictions",
-        "test_predictions": "A2-data/test.predictions",
-        "dev_answers": "A2-data/dev.answers",
-        "test_answers": "A2-data/test_answers/test.answers"
-    }
+def process_data(file, train=False):
+    data = []
+    sentence, tags = [], []
 
+    with open(file, "r") as f:
+        for line in f:
+            line = line.strip()
+            if line == "":  # Sentence boundary
+                if sentence:
+                    data.append((sentence, tags if train else []))
+                    sentence, tags = [], []
+            else:
+                parts = line.split('\t')
+                sentence.append(parts[0])
+                if train and len(parts) == 2:
+                    tags.append(parts[1])
+        
+    # Handle last sentence if file doesn't end with a newline
+    if sentence:
+        data.append((sentence, tags if train else []))
 
-    # Training Data
-    training_data = [
-        ("the wall street journal reported today that apple corporation made money".split(),
-         "B I I I O O O B I O O".split()),
-        ("georgia tech is a university in georgia".split(), "B I O O O O B".split())
-    ]
+    print(f"✅ Loaded {len(data)} sentences from {file}")
+    return data
 
-    # Build vocabulary and tag mappings
-    word_to_ix = {word: idx for sentence, _ in training_data for idx, word in enumerate(set(sentence))}
-    tag_to_ix = {"B": 0, "I": 1, "O": 2, START_TAG: 3, STOP_TAG: 4}
+def build_vocab(data):
+    word_to_ix = {"<PAD>": 0, "<UNK>": 1}
+    tag_to_ix = {START_TAG: 0, STOP_TAG: 1}
+    for sentence, tags in data:
+        for word in sentence:
+            if word not in word_to_ix:
+                word_to_ix[word] = len(word_to_ix)
+        for tag in tags:
+            if tag not in tag_to_ix:
+                tag_to_ix[tag] = len(tag_to_ix)
+    return word_to_ix, tag_to_ix
 
-    # Initialize model and optimizer
-    model = BiLSTM_CRF(len(word_to_ix), tag_to_ix, EMBEDDING_DIM, HIDDEN_DIM)
-    optimizer = optim.SGD(model.parameters(), lr=0.01, weight_decay=1e-4)
+# ---------------------------
+# Training Function with Progress Bar
+# ---------------------------
 
-    # Before training predictions
-    print("Before Training:")
-    with torch.no_grad():
-        sentence = prepare_sequence(training_data[0][0], word_to_ix)
-        print("Prediction:", model(sentence))
-
-    # Training loop
+def train(model, train_loader, optimizer):
+    model.train()
     for epoch in range(NUM_EPOCHS):
         total_loss = 0
-        for sentence, tags in training_data:
+        progress_bar = tqdm(train_loader, desc=f"Epoch {epoch + 1}/{NUM_EPOCHS}", leave=False)
+        for sentences, tags, lengths in progress_bar:
             model.zero_grad()
-            sentence_in = prepare_sequence(sentence, word_to_ix)
-            targets = torch.tensor([tag_to_ix[t] for t in tags], dtype=torch.long)
-            loss = model.neg_log_likelihood(sentence_in, targets)
-            loss.backward()
+            batch_loss = sum(model.neg_log_likelihood(sentences[i][:lengths[i]], tags[i][:lengths[i]]) for i in range(len(sentences))) / len(sentences)
+            batch_loss.backward()
             optimizer.step()
-            total_loss += loss.item()
 
-        print(f"Epoch {epoch + 1}/{NUM_EPOCHS}: Loss = {total_loss:.4f}")
+            total_loss += batch_loss.item()
+            progress_bar.set_postfix(loss=batch_loss.item())
+        print(f"Epoch {epoch + 1}/{NUM_EPOCHS} - Average Loss: {total_loss / len(train_loader):.4f}")
 
-    # After training predictions
-    print("\nAfter Training:")
-    with torch.no_grad():
-        sentence = prepare_sequence(training_data[0][0], word_to_ix)
-        score, tag_seq = model(sentence)
-        print("Prediction:", tag_seq)
+    return model
 
-# -------------------------------------------
-#              RUN THE PROGRAM
-# -------------------------------------------
+# ---------------------------
+# Prediction Function
+# ---------------------------
+
+def predict(model, data, output_file):
+    model.eval()
+    with open(output_file, "w") as f:
+        with torch.no_grad():
+            for sentence, _ in data:
+                sentence_tensor = prepare_sequence(sentence, word_to_ix).to(DEVICE)
+                lstm_feats = model(sentence_tensor)
+                predictions = torch.argmax(lstm_feats, dim=1)
+
+                ix_to_tag = {v: k for k, v in tag_to_ix.items()}
+                predicted_tags = [ix_to_tag[idx.item()] for idx in predictions]
+
+                for word, tag in zip(sentence, predicted_tags):
+                    f.write(f"{word}\t{tag}\n")
+                f.write("\n")
+    print(f"✅ Predictions saved to {output_file}")
+    
+# ---------------------------
+# Main Function
+# ---------------------------
+
+def main():
+    file_paths = {"train": "A2-data/train", "dev": "A2-data/dev", "test": "A2-data/test"}
+
+    # Process data
+    train_data = process_data(file_paths["train"], train=True)
+    dev_data = process_data(file_paths["dev"], train=False)
+    test_data = process_data(file_paths["test"], train=False)
+
+    global word_to_ix, tag_to_ix
+    word_to_ix, tag_to_ix = build_vocab(train_data)
+
+    train_loader = DataLoader(
+        SentenceDataset(train_data),
+        batch_size=BATCH_SIZE,
+        shuffle=True,
+        collate_fn=collate_fn
+    )
+
+    # Initialize model and optimizer
+    model = BiLSTM_CRF(len(word_to_ix), tag_to_ix, EMBEDDING_DIM, HIDDEN_DIM).to(DEVICE)
+    optimizer = optim.SGD(model.parameters(), lr=0.01, weight_decay=1e-4)
+
+    # Train model
+    model = train(model, train_loader, optimizer)
+
+    # 🚀 Generate predictions for dev and test
+    predict(model, dev_data, "A2-data/dev.answers")
+    predict(model, test_data, "A2-data/test.answers")
+
 if __name__ == "__main__":
     main()

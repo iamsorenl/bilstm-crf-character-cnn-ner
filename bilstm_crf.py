@@ -26,6 +26,7 @@ class BiLSTM_CRF(nn.Module):
         # -------- Word Embeddings --------
         self.word_embeds = nn.Embedding(token_vocab_size, embedding_dim)
 
+        '''
         # -------- Character Embeddings --------
         self.char_embeds = nn.Embedding(char_vocab_size, char_embedding_dim, padding_idx=0)
         self.char_cnn = nn.Conv1d(
@@ -34,9 +35,11 @@ class BiLSTM_CRF(nn.Module):
             kernel_size=char_kernel_size,
             padding=char_kernel_size // 2
         )
+        '''
 
         # -------- LSTM Input Dimension --------
-        self.lstm_input_dim = embedding_dim + char_out_dim
+        #self.lstm_input_dim = embedding_dim + char_out_dim
+        self.lstm_input_dim = embedding_dim
 
         # -------- BiLSTM Layer --------
         self.lstm = nn.LSTM(
@@ -83,10 +86,11 @@ class BiLSTM_CRF(nn.Module):
         Combines word and character embeddings, passes them through BiLSTM.
         """
         word_embeds = self.word_embeds(sentences)  # (batch_size, seq_len, embedding_dim)
-        char_features = self._get_char_features(char_sequences)  # (batch_size, seq_len, char_out_dim)
+        #char_features = self._get_char_features(char_sequences)  # (batch_size, seq_len, char_out_dim)
 
         # Concatenate embeddings -> (batch_size, seq_len, embedding_dim + char_out_dim)
-        embeddings = torch.cat([word_embeds, char_features], dim=2)
+        #embeddings = torch.cat([word_embeds, char_features], dim=2)
+        embeddings = word_embeds
 
         # Pack and pass through BiLSTM
         packed_embeds = pack_padded_sequence(embeddings, lengths.cpu(), batch_first=True, enforce_sorted=False)
