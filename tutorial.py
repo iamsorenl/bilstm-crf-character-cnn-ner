@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
-from torch.nn.utils.rnn import pad_sequence
-from tqdm import tqdm  # 🚀 Progress bar
+from torch.nn.utils.rnn import pad_sequence, pack_padded_sequence, pad_packed_sequence
+from tqdm import tqdm
 
 torch.manual_seed(1234)
 
@@ -19,25 +19,16 @@ BATCH_SIZE = 16
 NUM_EPOCHS = 10
 
 # ---------------------------
-# Detect if GPU is available
+# Device Configuration
 # ---------------------------
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"✅ Using device: {DEVICE}")
+print(f"Using device: {DEVICE}")
 
 # ---------------------------
 # Utility Functions
 # ---------------------------
-
-def argmax(vec):
-    _, idx = torch.max(vec, 1)
-    return idx.item()
-
 def prepare_sequence(seq, to_ix):
     return torch.tensor([to_ix.get(w, to_ix["<UNK>"]) for w in seq], dtype=torch.long, device=DEVICE)
-
-def log_sum_exp(vec):
-    max_score = vec[0, argmax(vec)]
-    return (max_score + torch.log(torch.sum(torch.exp(vec - max_score)))).unsqueeze(0)
 
 def collate_fn(batch):
     sentences, tags = zip(*batch)
@@ -52,7 +43,6 @@ def collate_fn(batch):
 # ---------------------------
 # Dataset Class
 # ---------------------------
-
 class SentenceDataset(Dataset):
     def __init__(self, data):
         self.data = data
@@ -66,62 +56,73 @@ class SentenceDataset(Dataset):
 # ---------------------------
 # BiLSTM-CRF Model
 # ---------------------------
-
 class BiLSTM_CRF(nn.Module):
     def __init__(self, vocab_size, tag_to_ix, embedding_dim, hidden_dim):
         super(BiLSTM_CRF, self).__init__()
-        self.embedding_dim = embedding_dim
-        self.hidden_dim = hidden_dim
         self.tag_to_ix = tag_to_ix
         self.tagset_size = len(tag_to_ix)
 
         self.word_embeds = nn.Embedding(vocab_size, embedding_dim)
-        self.lstm = nn.LSTM(embedding_dim, hidden_dim // 2, num_layers=1, bidirectional=True)
+        self.lstm = nn.LSTM(
+            embedding_dim,
+            hidden_dim // 2,
+            num_layers=2,  # ✅ Multi-layer BiLSTM
+            dropout=0.1,   # ✅ Dropout for regularization
+            bidirectional=True,
+            batch_first=True
+        )
         self.hidden2tag = nn.Linear(hidden_dim, self.tagset_size)
 
-        self.transitions = nn.Parameter(torch.randn(self.tagset_size, self.tagset_size))
+        self.transitions = nn.Parameter(torch.randn(self.tagset_size, self.tagset_size, device=DEVICE))
         self.transitions.data[self.tag_to_ix[START_TAG], :] = -10000
         self.transitions.data[:, self.tag_to_ix[STOP_TAG]] = -10000
 
+    def _get_lstm_features(self, sentences, lengths):
+        embeds = self.word_embeds(sentences)  # (batch_size, seq_len, embedding_dim)
+        packed_embeds = pack_padded_sequence(embeds, lengths.cpu(), batch_first=True, enforce_sorted=False)
+        packed_lstm_out, _ = self.lstm(packed_embeds)
+        lstm_out, _ = pad_packed_sequence(packed_lstm_out, batch_first=True)
+        return self.hidden2tag(lstm_out)  # (batch_size, seq_len, tagset_size)
+
     def _forward_alg(self, feats):
-        init_alphas = torch.full((1, self.tagset_size), -10000., device=DEVICE)
-        init_alphas[0][self.tag_to_ix[START_TAG]] = 0.
+        batch_size, seq_len, tagset_size = feats.size()
+        forward_var = torch.full((batch_size, tagset_size), -10000., device=feats.device)
+        forward_var[:, self.tag_to_ix[START_TAG]] = 0.
 
-        forward_var = init_alphas
-        for feat in feats:
-            alphas_t = [
-                log_sum_exp(forward_var + self.transitions[next_tag] + feat[next_tag])
-                for next_tag in range(self.tagset_size)
-            ]
-            forward_var = torch.cat(alphas_t).view(1, -1)  # No more error here
-        terminal_var = forward_var + self.transitions[self.tag_to_ix[STOP_TAG]]
-        return log_sum_exp(terminal_var)
+        for i in range(seq_len):
+            emit_scores = feats[:, i].unsqueeze(2)
+            trans_scores = self.transitions.unsqueeze(0)
+            scores = forward_var.unsqueeze(1) + emit_scores + trans_scores
+            forward_var = torch.logsumexp(scores, dim=2)
 
-    def _get_lstm_features(self, sentence):
-        embeds = self.word_embeds(sentence).unsqueeze(1)
-        lstm_out, _ = self.lstm(embeds)
-        lstm_out = lstm_out.view(len(sentence), self.hidden_dim)
-        return self.hidden2tag(lstm_out)
+        terminal_var = forward_var + self.transitions[self.tag_to_ix[STOP_TAG]].unsqueeze(0)
+        return torch.logsumexp(terminal_var, dim=1)  # (batch_size,)
 
-    def _score_sentence(self, feats, tags):
-        score = torch.zeros(1, device=DEVICE)
-        tags = torch.cat([torch.tensor([self.tag_to_ix[START_TAG]], dtype=torch.long, device=DEVICE), tags])
-        for i, feat in enumerate(feats):
-            score += self.transitions[tags[i + 1], tags[i]] + feat[tags[i + 1]]
-        return score + self.transitions[self.tag_to_ix[STOP_TAG], tags[-1]]
+    def _score_sentence(self, feats, tags, lengths):
+        batch_size, seq_len, _ = feats.size()
+        score = torch.zeros(batch_size, device=feats.device)
+        start_tags = torch.full((batch_size, 1), self.tag_to_ix[START_TAG], dtype=torch.long, device=feats.device)
+        tags = torch.cat([start_tags, tags], dim=1)
 
-    def neg_log_likelihood(self, sentence, tags):
-        feats = self._get_lstm_features(sentence)
-        return self._forward_alg(feats) - self._score_sentence(feats, tags)
+        for i in range(seq_len):
+            current_tag, next_tag = tags[:, i], tags[:, i + 1]
+            emit_score = feats[torch.arange(batch_size), i, next_tag]
+            trans_score = self.transitions[next_tag, current_tag]
+            score += emit_score + trans_score
 
-    def forward(self, sentence):
-        lstm_feats = self._get_lstm_features(sentence)
-        return lstm_feats
+        last_tag = tags[torch.arange(batch_size), lengths]
+        score += self.transitions[self.tag_to_ix[STOP_TAG], last_tag]
+        return score
+
+    def neg_log_likelihood(self, sentences, tags, lengths):
+        feats = self._get_lstm_features(sentences, lengths)
+        forward_score = self._forward_alg(feats)
+        gold_score = self._score_sentence(feats, tags, lengths)
+        return torch.mean(forward_score - gold_score)
 
 # ---------------------------
-# Data Processing
+# Data Processing Functions
 # ---------------------------
-
 def process_data(file, train=False):
     data = []
     sentence, tags = [], []
@@ -129,7 +130,7 @@ def process_data(file, train=False):
     with open(file, "r") as f:
         for line in f:
             line = line.strip()
-            if line == "":  # Sentence boundary
+            if line == "":
                 if sentence:
                     data.append((sentence, tags if train else []))
                     sentence, tags = [], []
@@ -138,76 +139,62 @@ def process_data(file, train=False):
                 sentence.append(parts[0])
                 if train and len(parts) == 2:
                     tags.append(parts[1])
-        
-    # Handle last sentence if file doesn't end with a newline
+
     if sentence:
         data.append((sentence, tags if train else []))
 
-    print(f"✅ Loaded {len(data)} sentences from {file}")
+    print(f"Loaded {len(data)} sentences from {file}")
     return data
 
 def build_vocab(data):
-    word_to_ix = {"<PAD>": 0, "<UNK>": 1}
-    tag_to_ix = {START_TAG: 0, STOP_TAG: 1}
+    word_to_ix, tag_to_ix = {"<PAD>": 0, "<UNK>": 1}, {START_TAG: 0, STOP_TAG: 1}
     for sentence, tags in data:
         for word in sentence:
-            if word not in word_to_ix:
-                word_to_ix[word] = len(word_to_ix)
+            word_to_ix.setdefault(word, len(word_to_ix))
         for tag in tags:
-            if tag not in tag_to_ix:
-                tag_to_ix[tag] = len(tag_to_ix)
+            tag_to_ix.setdefault(tag, len(tag_to_ix))
     return word_to_ix, tag_to_ix
 
 # ---------------------------
-# Training Function with Progress Bar
+# Training Loop
 # ---------------------------
-
 def train(model, train_loader, optimizer):
     model.train()
     for epoch in range(NUM_EPOCHS):
         total_loss = 0
-        progress_bar = tqdm(train_loader, desc=f"Epoch {epoch + 1}/{NUM_EPOCHS}", leave=False)
+        progress_bar = tqdm(train_loader, desc=f"Epoch {epoch + 1}/{NUM_EPOCHS}")
         for sentences, tags, lengths in progress_bar:
-            model.zero_grad()
-            batch_loss = sum(model.neg_log_likelihood(sentences[i][:lengths[i]], tags[i][:lengths[i]]) for i in range(len(sentences))) / len(sentences)
-            batch_loss.backward()
+            optimizer.zero_grad()
+            loss = model.neg_log_likelihood(sentences, tags, lengths)
+            loss.backward()
             optimizer.step()
-
-            total_loss += batch_loss.item()
-            progress_bar.set_postfix(loss=batch_loss.item())
-        print(f"Epoch {epoch + 1}/{NUM_EPOCHS} - Average Loss: {total_loss / len(train_loader):.4f}")
-
-    return model
+            total_loss += loss.item()
+            progress_bar.set_postfix(loss=loss.item())
+        print(f"Epoch {epoch + 1} - Avg Loss: {total_loss / len(train_loader):.4f}")
 
 # ---------------------------
 # Prediction Function
 # ---------------------------
-
 def predict(model, data, output_file):
     model.eval()
     with open(output_file, "w") as f:
         with torch.no_grad():
             for sentence, _ in data:
-                sentence_tensor = prepare_sequence(sentence, word_to_ix).to(DEVICE)
-                lstm_feats = model(sentence_tensor)
-                predictions = torch.argmax(lstm_feats, dim=1)
-
+                sentence_tensor = prepare_sequence(sentence, word_to_ix).unsqueeze(0)
+                lengths = torch.tensor([len(sentence)], device=DEVICE)
+                feats = model._get_lstm_features(sentence_tensor, lengths)
+                predictions = torch.argmax(feats.squeeze(0), dim=1)
                 ix_to_tag = {v: k for k, v in tag_to_ix.items()}
-                predicted_tags = [ix_to_tag[idx.item()] for idx in predictions]
-
-                for word, tag in zip(sentence, predicted_tags):
-                    f.write(f"{word}\t{tag}\n")
+                for word, tag_idx in zip(sentence, predictions):
+                    f.write(f"{word}\t{ix_to_tag[tag_idx.item()]}\n")
                 f.write("\n")
-    print(f"✅ Predictions saved to {output_file}")
-    
-# ---------------------------
-# Main Function
-# ---------------------------
+    print(f"Predictions saved to {output_file}")
 
+# ---------------------------
+# Main Execution
+# ---------------------------
 def main():
     file_paths = {"train": "A2-data/train", "dev": "A2-data/dev", "test": "A2-data/test"}
-
-    # Process data
     train_data = process_data(file_paths["train"], train=True)
     dev_data = process_data(file_paths["dev"], train=False)
     test_data = process_data(file_paths["test"], train=False)
@@ -222,16 +209,12 @@ def main():
         collate_fn=collate_fn
     )
 
-    # Initialize model and optimizer
     model = BiLSTM_CRF(len(word_to_ix), tag_to_ix, EMBEDDING_DIM, HIDDEN_DIM).to(DEVICE)
     optimizer = optim.SGD(model.parameters(), lr=0.01, weight_decay=1e-4)
 
-    # Train model
-    model = train(model, train_loader, optimizer)
-
-    # 🚀 Generate predictions for dev and test
-    predict(model, dev_data, "A2-data/dev.answers")
-    predict(model, test_data, "A2-data/test.answers")
+    train(model, train_loader, optimizer)
+    predict(model, dev_data, "A2-data/dev.predictions")
+    predict(model, test_data, "A2-data/test.predictions")
 
 if __name__ == "__main__":
     main()
