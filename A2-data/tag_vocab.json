@@ -1,0 +1,16 @@
+{
+    "<START>": 0,
+    "<STOP>": 1,
+    "<PAD>": 2,
+    "B-DNA": 3,
+    "I-DNA": 4,
+    "O": 5,
+    "B-protein": 6,
+    "I-protein": 7,
+    "B-cell_type": 8,
+    "I-cell_type": 9,
+    "B-cell_line": 10,
+    "I-cell_line": 11,
+    "B-RNA": 12,
+    "I-RNA": 13
+}
