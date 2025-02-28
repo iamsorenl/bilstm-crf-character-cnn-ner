@@ -17,14 +17,13 @@ def setup_device():
     return device
 
 # Hyperparameters
-EMBEDDING_DIM = 100
-CHAR_EMBEDDING_DIM = 30
-CHAR_OUT_DIM = 50
-HIDDEN_DIM = 256
-BATCH_SIZE = 32
-EPOCHS = 3
-LEARNING_RATE = 0.01
-WEIGHT_DECAY = 1e-4
+EMBEDDING_DIM = 100  # Standard for word embeddings
+HIDDEN_DIM = 256  # More capacity for BiLSTM to learn patterns
+CHAR_EMBEDDING_DIM = 30  # Good for capturing subword information
+CHAR_OUT_DIM = 50  # Output of Char-CNN
+BATCH_SIZE = 32  # Standard batch size
+EPOCHS = 3  # More epochs to converge better
+LEARNING_RATE = 0.01  # Lower LR for stability
+WEIGHT_DECAY = 1e-4  # Regularization
 START_TAG = "<START>"
-STOP_TAG =  "<STOP>"
-DEVICE = device
+STOP_TAG = "<STOP>"

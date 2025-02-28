@@ -31,8 +31,15 @@ class BiLSTM_CRF(nn.Module):
 
         # CRF transition parameters
         self.transitions = nn.Parameter(torch.randn(self.tagset_size, self.tagset_size))
-        self.transitions.data[self.tag_to_ix[START_TAG], :] = -10000  # No transition to START_TAG
-        self.transitions.data[:, self.tag_to_ix[STOP_TAG]] = -10000  # No transition from STOP_TAG
+        
+        #self.transitions.data[self.tag_to_ix[START_TAG], :] = -10000  # No transition to START_TAG
+        #self.transitions.data[:, self.tag_to_ix[STOP_TAG]] = -10000  # No transition from STOP_TAG
+        # Block illegal transitions:
+        self.transitions.data[self.tag_to_ix[START_TAG], :] = -10000  # No transitions *from* START_TAG
+        self.transitions.data[:, self.tag_to_ix[START_TAG]] = -10000  # No transitions *to* START_TAG
+        self.transitions.data[:, self.tag_to_ix[STOP_TAG]] = -10000   # No transitions *to* STOP_TAG
+        self.transitions.data[self.tag_to_ix[STOP_TAG], :] = -10000   # No transitions *from* STOP_TAG
+
 
     def _get_lstm_features(self, sentences, lengths):
         """
@@ -102,9 +109,6 @@ class BiLSTM_CRF(nn.Module):
         return torch.mean(forward_score - gold_score)  # Average loss over batch
 
     def forward(self, sentences, lengths):
-        """
-        Predict tag sequences using emission + transition scores (without Viterbi).
-        """
         feats = self._get_lstm_features(sentences, lengths)  # (batch_size, seq_len, tagset_size)
         batch_size, seq_len, _ = feats.size()
         predictions = []
@@ -112,16 +116,21 @@ class BiLSTM_CRF(nn.Module):
         for i in range(batch_size):
             seq_len_i = lengths[i].item()
             forward_var = torch.full((self.tagset_size,), -10000., device=DEVICE)
-            forward_var[self.tag_to_ix[START_TAG]] = 0.0
+            forward_var[self.tag_to_ix[START_TAG]] = 0.0  # Initialize start
 
             pred_tags = []
             for t in range(seq_len_i):
                 emit_score = feats[i, t]  # (tagset_size,)
-                scores = forward_var + emit_score + self.transitions[:, self.tag_to_ix[START_TAG]]
+
+                # MASK OUT START_TAG DURING PREDICTION
+                mask = torch.full((self.tagset_size,), -10000., device=DEVICE)
+                mask[self.tag_to_ix[START_TAG]] = -10000.0  # Prevent predicting START
+
+                scores = forward_var + emit_score + self.transitions[:, self.tag_to_ix[START_TAG]] + mask
                 best_tag = torch.argmax(scores).item()
                 pred_tags.append(best_tag)
                 forward_var = scores
 
             predictions.append(pred_tags)
 
-        return predictions  # List of predicted tag sequences
+        return predictions

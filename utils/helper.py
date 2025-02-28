@@ -1,93 +1,84 @@
 import torch
-from torch.utils.data import Dataset
 from torch.nn.utils.rnn import pad_sequence
-from config import START_TAG, STOP_TAG, DEVICE
+from config import START_TAG, STOP_TAG
 
-# -------------------- Utility Functions --------------------
+def argmax(vec):
+    _, idx = torch.max(vec, 1)
+    return idx  # No need for .item() here
 
-def argmax(vec, dim=1):
-    """
-    Returns the indices of the maximum values along a specified dimension.
-    """
-    _, idx = torch.max(vec, dim=dim)
-    return idx
+def prepare_sequence(seq, to_ix):
+    idxs = [to_ix[w] for w in seq]
+    return torch.tensor(idxs, dtype=torch.long)
 
-def log_sum_exp(vec):
+def log_sum_exp(vec, dim=1):
     """
     Computes log-sum-exp in a numerically stable way.
     Args:
-        vec (Tensor): shape (batch_size, tagset_size)
+        vec (Tensor): shape (..., tagset_size)
+        dim (int): Dimension over which to compute log-sum-exp
     Returns:
-        Tensor: shape (batch_size, 1)
+        Tensor: shape (..., 1) if keepdim=True, else reduced along dim.
     """
-    max_score, _ = torch.max(vec, dim=1, keepdim=True)  # (batch_size, 1)
-    return max_score + torch.log(torch.sum(torch.exp(vec - max_score), dim=1, keepdim=True))  # (batch_size, 1)
+    max_score, _ = torch.max(vec, dim=dim, keepdim=True)  # Get max along specified dim
+    return max_score + torch.log(torch.sum(torch.exp(vec - max_score), dim=dim, keepdim=True))
 
-def make_vocab(input_data):
-    """
-    Builds vocabularies for words and tags.
-    Args:
-        input_data (list): List of (sentence, tags) pairs.
-    Returns:
-        word_vocab (dict), tag_vocab (dict)
-    """
-    word_vocab = {"<PAD>": 0, "<UNK>": 1}
-    tag_vocab = {START_TAG: 0, STOP_TAG: 1, "<PAD>": 2}
+def read_conll_file(file_path, with_labels=True):
+    data = []
+    words, labels = [], []
 
-    for sentence, tags in input_data:
+    with open(file_path, "r", encoding="utf-8") as file:
+        for line in file:
+            line = line.strip()
+
+            if not line:  # Sentence boundary (blank line)
+                if words:  # Only add if we have words
+                    data.append((words, labels) if with_labels else (words, []))
+                    words, labels = [], []  # Reset for next sentence
+                continue
+
+            parts = line.split("\t")
+            if with_labels and len(parts) == 2:
+                word, label = parts
+                words.append(word)
+                labels.append(label)
+            elif not with_labels and len(parts) == 1:
+                words.append(parts[0])
+            else:
+                print(f"Warning: Unexpected line format -> {line}")  # Debugging help
+
+    # Handle last sentence (if file does not end with blank line)
+    if words:
+        data.append((words, labels) if with_labels else (words, []))
+
+    return data
+
+def build_vocab(data):
+    word_to_ix = {"<PAD>": 0, "<UNK>": 1}  # Add special tokens
+    tag_to_ix = {START_TAG: 0, STOP_TAG: 1}
+
+    for sentence, tags in data:
         for word in sentence:
-            if word not in word_vocab:
-                word_vocab[word] = len(word_vocab)
+            if word not in word_to_ix:
+                word_to_ix[word] = len(word_to_ix)  # Assign next available index
+
         for tag in tags:
-            if tag not in tag_vocab:
-                tag_vocab[tag] = len(tag_vocab)
+            if tag not in tag_to_ix:
+                tag_to_ix[tag] = len(tag_to_ix)  # Assign next available index
 
-    return word_vocab, tag_vocab
+    return word_to_ix, tag_to_ix
 
-# -------------------- Dataset Class --------------------
+def collate_fn(batch):
+    sentences, tags = zip(*batch)  # Unzip batch into sentences and tags
 
-class SentenceDataset(Dataset):
-    """
-    Dataset for handling tokenized sentences and tags.
-    """
-    def __init__(self, data, word_to_ix, tag_to_ix):
-        self.data = data
-        self.word_to_ix = word_to_ix
-        self.tag_to_ix = tag_to_ix
+    # Convert to tensors
+    sentences = [torch.tensor(sent, dtype=torch.long) for sent in sentences]
+    tags = [torch.tensor(tag, dtype=torch.long) for tag in tags]
 
-    def __len__(self):
-        return len(self.data)
+    # Pad sequences to max length in batch
+    padded_sentences = pad_sequence(sentences, batch_first=True, padding_value=0)  # Assume <PAD> = 0
+    padded_tags = pad_sequence(tags, batch_first=True, padding_value=1)  # Assume <START> = 1
 
-    def __getitem__(self, idx):
-        sentence, tags = self.data[idx]
+    # Compute original lengths before padding
+    lengths = torch.tensor([len(sent) for sent in sentences], dtype=torch.long)
 
-        # Convert words and tags to indices
-        sentence_tensor = torch.tensor(
-            [self.word_to_ix.get(word, self.word_to_ix["<UNK>"]) for word in sentence],
-            dtype=torch.long
-        )
-        tag_tensor = torch.tensor(
-            [self.tag_to_ix.get(tag, self.tag_to_ix["<PAD>"]) for tag in tags],
-            dtype=torch.long
-        )
-
-        return sentence_tensor, tag_tensor
-
-# -------------------- Collate Function --------------------
-
-def get_collate_fn(word_to_ix, tag_to_ix):
-    """
-    Returns a collate function for DataLoader.
-    Pads sentences and tags to the length of the longest sequence in the batch.
-    """
-    def collate_fn(batch):
-        sentences, tags = zip(*batch)
-        lengths = torch.tensor([len(s) for s in sentences], dtype=torch.long)
-
-        # Pad sentences and tags
-        padded_sentences = pad_sequence(sentences, batch_first=True, padding_value=word_to_ix["<PAD>"])
-        padded_tags = pad_sequence(tags, batch_first=True, padding_value=tag_to_ix["<PAD>"])
-
-        return padded_sentences, padded_tags, lengths
-
-    return collate_fn
+    return padded_sentences, padded_tags, lengths
