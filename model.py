@@ -3,11 +3,9 @@ import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 from config import START_TAG, STOP_TAG, DEVICE
-from helper import argmax, log_sum_exp, convert_to_char_tensor
-from data import load_vocab, load_datasets
+from helper import argmax, log_sum_exp, hamming_loss, convert_to_char_tensor
+from data import tag_vocab, max_word_len, char_vocab, word_vocab
 
-train_set, _, _ = load_datasets()
-word_vocab, tag_vocab, char_vocab, max_word_len = load_vocab(train_set)
 
 class BiLSTM_CRF(nn.Module):
     def __init__(
@@ -21,7 +19,7 @@ class BiLSTM_CRF(nn.Module):
         char_cnn_kernel=2,
         char_embedding_dim=4,
         loss="log_loss",
-        cost=None,
+        cost=hamming_loss(),
     ):
         super(BiLSTM_CRF, self).__init__()
         self.embedding_dim = embedding_dim
@@ -265,22 +263,8 @@ class BiLSTM_CRF(nn.Module):
                 )
                 gold_score = self._score_sentence(feats, tag_seq)
                 current_loss = viterbi_score - gold_score
-            elif self.loss_type == "ramp_loss":
-                # ramp loss = - max(score) + max(score + cost)
-                viterbi_score, _ = self._viterbi_decode(feats)
-                viterbi_score_with_cost, _ = self._viterbi_decode(
-                    feats, tag_seq, self.cost
-                )
-                current_loss = viterbi_score_with_cost - viterbi_score
-            elif self.loss_type == "soft_ramp_loss":
-                # soft ramp loss = - log_sum_exp (score) + log_sum_exp (score + cost)
-                forward_score = self._forward_alg(feats)
-                forward_score_with_cost = self._forward_alg(
-                    feats, tag_seq, self.cost
-                )
-                current_loss = forward_score_with_cost - forward_score
             else:
-                # crf loss = - gold score + normalizer(log_sum_exp (score))
+                # log loss = - gold score + normalizer(log_sum_exp (score))
                 forward_score = self._forward_alg(feats, tag_seq)
                 gold_score = self._score_sentence(feats, tag_seq)
                 current_loss = forward_score - gold_score

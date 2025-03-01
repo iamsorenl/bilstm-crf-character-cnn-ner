@@ -60,3 +60,10 @@ def padding_char(char, max_len):
             break
         char = char + [0]
     return char
+
+def hamming_loss(loss_val=10):
+    # Returns a hamming loss function that assigns a penalty for incorrect predictions
+    def loss(gold, pred):
+        return loss_val if gold != pred else 0
+
+    return loss

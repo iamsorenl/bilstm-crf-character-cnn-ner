@@ -35,4 +35,6 @@ START_TAG = "<START>"
 STOP_TAG = "<STOP>"
 PADDING = "<PAD>"
 UNK_TOKEN = "<UNK>"
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
+DEVICE = device
