@@ -2,10 +2,12 @@ import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
-from constants import START_TAG, STOP_TAG, DEVICE
-from helper import argmax, log_sum_exp, hamming_loss, convert_to_char_tensor
-from data import tag_vocab, max_word_len, char_vocab, word_vocab
+from config import START_TAG, STOP_TAG, DEVICE
+from helper import argmax, log_sum_exp, convert_to_char_tensor
+from data import load_vocab, load_datasets
 
+train_set, _, _ = load_datasets()
+word_vocab, tag_vocab, char_vocab, max_word_len = load_vocab(train_set)
 
 class BiLSTM_CRF(nn.Module):
     def __init__(
@@ -18,8 +20,8 @@ class BiLSTM_CRF(nn.Module):
         char_cnn_stride=2,
         char_cnn_kernel=2,
         char_embedding_dim=4,
-        loss="crf_loss",
-        cost=hamming_loss(),
+        loss="log_loss",
+        cost=None,
     ):
         super(BiLSTM_CRF, self).__init__()
         self.embedding_dim = embedding_dim

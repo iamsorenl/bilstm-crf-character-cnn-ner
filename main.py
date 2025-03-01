@@ -1,173 +1,43 @@
 import torch
-import typer
-
-from experiment import experiment
+import argparse
+from config import EMB_DIM, HIDDEN_DIM, EPOCH_NUM, BATCH_SIZE, LR, LAMB, COST_VAL, RESUME, CHAR_EMB_DIM, CHAR_CNN_STRIDE, CHAR_CNN_KERNEL, LOSS_SOFTMAX_MARGIN, LOSS_SVM, START_TAG, STOP_TAG, PADDING, UNK_TOKEN, DEVICE
 
 torch.manual_seed(1)
 
-app = typer.Typer()
+def bi_lstm_crf():
+    print("Running bi_lstm_crf model")
+    
 
+def bi_lstm_crf_char_cnn():
+    print("Running bi_lstm_crf_char_cnn model")
 
-@app.command()
-def bi_lstm_crf(
-    name,
-    emb_dim: int = 5,
-    hidden_dim: int = 4,
-    epoch_num: int = 2,
-    batch_size: int = 2,
-    lr: float = 0.01,
-    lamb: float = 1e-4,
-    resume: bool = False,
-    cost_val: int = 10,
-):
-    experiment(
-        emb_dim=emb_dim,
-        hidden_dim=hidden_dim,
-        epoch_num=epoch_num,
-        batch_size=batch_size,
-        lr=lr,
-        lamb=lamb,
-        name=name,
-        resume=resume,
-        cost_val=cost_val,
-    )
+def bi_lstm_crf_svm_loss():
+    print("Running bi_lstm_crf_svm_loss model")
 
+def bi_lstm_crf_softmax_margin_loss():
+    print("Running bi_lstm_crf_softmax_margin_loss model")
 
-@app.command()
-def bi_lstm_crf_char_cnn(
-    name,
-    emb_dim: int = 5,
-    char_emb_dim: int = 4,
-    stride: int = 2,
-    kernel: int = 2,
-    hidden_dim: int = 4,
-    epoch_num: int = 2,
-    batch_size: int = 2,
-    lr: float = 0.01,
-    lamb: float = 1e-4,
-    resume: bool = False,
-    cost_val: int = 10,
-):
-    experiment(
-        emb_dim=emb_dim,
-        char_emb_dim=char_emb_dim,
-        char_cnn_stride=stride,
-        char_cnn_kernel=kernel,
-        hidden_dim=hidden_dim,
-        epoch_num=epoch_num,
-        batch_size=batch_size,
-        lr=lr,
-        lamb=lamb,
-        name=name,
-        char_cnn=True,
-        resume=resume,
-        cost_val=cost_val,
-    )
-
-
-@app.command()
-def bi_lstm_crf_softmax_margin_loss(
-    name,
-    emb_dim: int = 5,
-    hidden_dim: int = 4,
-    epoch_num: int = 2,
-    batch_size: int = 2,
-    lr: float = 0.01,
-    lamb: float = 1e-4,
-    resume: bool = False,
-    cost_val: int = 10,
-):
-    experiment(
-        emb_dim=emb_dim,
-        hidden_dim=hidden_dim,
-        epoch_num=epoch_num,
-        batch_size=batch_size,
-        lr=lr,
-        lamb=lamb,
-        name=name,
-        loss="softmax_margin_loss",
-        resume=resume,
-        cost_val=cost_val,
-    )
-
-
-@app.command()
-def bi_lstm_crf_svm_loss(
-    name,
-    emb_dim: int = 5,
-    hidden_dim: int = 4,
-    epoch_num: int = 2,
-    batch_size: int = 2,
-    lr: float = 0.01,
-    lamb: float = 1e-4,
-    resume: bool = False,
-    cost_val: int = 10,
-):
-    experiment(
-        emb_dim=emb_dim,
-        hidden_dim=hidden_dim,
-        epoch_num=epoch_num,
-        batch_size=batch_size,
-        lr=lr,
-        lamb=lamb,
-        name=name,
-        loss="svm_loss",
-        resume=resume,
-        cost_val=cost_val,
-    )
-
-
-@app.command()
-def bi_lstm_crf_ramp_loss(
-    name,
-    emb_dim: int = 5,
-    hidden_dim: int = 4,
-    epoch_num: int = 2,
-    batch_size: int = 2,
-    lr: float = 0.01,
-    lamb: float = 1e-4,
-    resume: bool = False,
-    cost_val: int = 10,
-):
-    experiment(
-        emb_dim=emb_dim,
-        hidden_dim=hidden_dim,
-        epoch_num=epoch_num,
-        batch_size=batch_size,
-        lr=lr,
-        lamb=lamb,
-        name=name,
-        loss="ramp_loss",
-        resume=resume,
-        cost_val=cost_val,
-    )
-
-
-@app.command()
-def bi_lstm_crf_soft_ramp_loss(
-    name,
-    emb_dim: int = 5,
-    hidden_dim: int = 4,
-    epoch_num: int = 2,
-    batch_size: int = 2,
-    lr: float = 0.01,
-    lamb: float = 1e-4,
-    resume: bool = False,
-    cost_val: int = 10,
-):
-    experiment(
-        emb_dim=emb_dim,
-        hidden_dim=hidden_dim,
-        epoch_num=epoch_num,
-        batch_size=batch_size,
-        lr=lr,
-        lamb=lamb,
-        name=name,
-        loss="soft_ramp_loss",
-        resume=resume,
-        cost_val=cost_val,
-    )
-
+def main():
+    parser = argparse.ArgumentParser(description="Choose a model variation to run")
+    parser.add_argument('--model', type=str, choices=[
+        'bi_lstm_crf', 
+        'bi_lstm_crf_char_cnn', 
+        'bi_lstm_crf_svm_loss', 
+        'bi_lstm_crf_softmax_margin_loss'
+    ], default='bi_lstm_crf', help="Model variation to run (default: bi_lstm_crf)")
+    
+    args = parser.parse_args()
+    
+    if args.model == 'bi_lstm_crf':
+        bi_lstm_crf()
+    elif args.model == 'bi_lstm_crf_char_cnn':
+        bi_lstm_crf_char_cnn()
+    elif args.model == 'bi_lstm_crf_svm_loss':
+        bi_lstm_crf_svm_loss()
+    elif args.model == 'bi_lstm_crf_softmax_margin_loss':
+        bi_lstm_crf_softmax_margin_loss()
+    else:
+        print("Invalid model choice")
 
 if __name__ == "__main__":
-    app()
+    main()

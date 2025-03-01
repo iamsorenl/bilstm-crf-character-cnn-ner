@@ -14,14 +14,15 @@ from train import train
 from data import (
     get_data_loader,
     get_sampled_data_loader,
-    word_vocab,
-    tag_vocab,
+    load_vocab,
+    load_datasets,
 )
-from constants import DEVICE
-from helper import hamming_loss
+from config import DEVICE
 
 word_to_ix = word_vocab.token2idx
 tag_to_ix = tag_vocab.token2idx
+
+word_to_ix, tag_to_ix, char_to_ix, max_word_len = load_vocab(train_set)
 
 
 def experiment(
@@ -65,7 +66,7 @@ def experiment(
         char_cnn_kernel=char_cnn_kernel,
         char_embedding_dim=char_emb_dim,
         loss=loss,
-        cost=hamming_loss(loss_val=cost_val),
+        cost=None,
     ).to(DEVICE)
 
     prev_best_score = None
