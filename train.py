@@ -1,64 +1,133 @@
-from models.model import BiLSTM_CRF
-from utils.helper import prepare_sequence, read_conll_file
+import time
+
 import torch
-import torch.nn as nn
-import torch.optim as optim
-from config import START_TAG, STOP_TAG, EMBEDDING_DIM, HIDDEN_DIM
+from tqdm import tqdm
+from matplotlib import pyplot as plt
 
-torch.manual_seed(1)
+from helper import unpad_sequence, convert_batch_sequence
+from data import tag_vocab
+from evaluate import batch_evaluate
 
-EMBEDDING_DIM = 5
-HIDDEN_DIM = 4
+EARLY_STOPPING_THRES = 3
 
-# Make up some training data
-training_data = [(
-    "the wall street journal reported today that apple corporation made money".split(),
-    "B I I I O O O B I O O".split()
-), (
-    "georgia tech is a university in georgia".split(),
-    "B I O O O O B".split()
-)]
 
-word_to_ix = {}
-for sentence, tags in training_data:
-    for word in sentence:
-        if word not in word_to_ix:
-            word_to_ix[word] = len(word_to_ix)
+def train(
+    model,
+    optimizer,
+    train_loader,
+    dev_loader,
+    epoch_num,
+    name="model_name",
+    prev_best_score=None,
+):
+    # record loss in every epoch for train and dev set for plotting
+    avg_train_epoch_losses = []
+    train_epoch_times = []
 
-tag_to_ix = {"B": 0, "I": 1, "O": 2, START_TAG: 3, STOP_TAG: 4}
+    # plotting loss over time for debugging training process
+    loss_ax, loss_fig = init_loss_plot()
 
-model = BiLSTM_CRF(len(word_to_ix), tag_to_ix, EMBEDDING_DIM, HIDDEN_DIM)
-optimizer = optim.SGD(model.parameters(), lr=0.01, weight_decay=1e-4)
+    # best score: precision, recall, f-1
+    best_score = (float("-inf"), float("-inf"), float("-inf"))
+    if prev_best_score:
+        best_score = prev_best_score
 
-# Check predictions before training
-with torch.no_grad():
-    precheck_sent = prepare_sequence(training_data[0][0], word_to_ix)
-    precheck_tags = torch.tensor([tag_to_ix[t] for t in training_data[0][1]], dtype=torch.long)
-    print(model(precheck_sent))
+    # for checking early stopping
+    no_improve_count = 0
 
-# Make sure prepare_sequence from earlier in the LSTM section is loaded
-for epoch in range(
-        300):  # again, normally you would NOT do 300 epochs, it is toy data
-    for sentence, tags in training_data:
-        # Step 1. Remember that Pytorch accumulates gradients.
-        # We need to clear them out before each instance
-        model.zero_grad()
+    train_size = len(train_loader.dataset)
+    dev_size = len(dev_loader.dataset)
+    for epoch in range(1, epoch_num + 1):
+        # for recording training time
+        # start of training
+        start_time = time.time()
 
-        # Step 2. Get our inputs ready for the network, that is,
-        # turn them into Tensors of word indices.
-        sentence_in = prepare_sequence(sentence, word_to_ix)
-        targets = torch.tensor([tag_to_ix[t] for t in tags], dtype=torch.long)
+        epoch_train_loss = 0
 
-        # Step 3. Run our forward pass.
-        loss = model.neg_log_likelihood(sentence_in, targets)
+        # training
+        train_preds = []
+        train_golds = []
+        for X, Y, seq_lens, _ in tqdm(train_loader, desc="Training"):
+            model.zero_grad()
 
-        # Step 4. Compute the loss, gradients, and update the parameters by
-        # calling optimizer.step()
-        loss.backward()
-        optimizer.step()
+            # Run our forward pass and compute the loss
+            loss = model.neg_log_likelihood(X, Y, seq_lens)
 
-# Check predictions after training
-with torch.no_grad():
-    precheck_sent = prepare_sequence(training_data[0][0], word_to_ix)
-    print(model(precheck_sent))
-# We got it!
+            epoch_train_loss += loss.item()
+            # Compute gradients with loss
+            loss.backward()
+
+            # Update the parameters by optimizer.step()
+            optimizer.step()
+
+        # record the average loss
+        avg_train_epoch_loss = epoch_train_loss / train_size
+        avg_train_epoch_losses.append(avg_train_epoch_loss)
+
+        # end of training
+        end_time = time.time()
+        train_epoch_times.append(end_time - start_time)
+
+        # Evaluating
+        dev_preds = []
+        dev_golds = []
+        for X, Y, seq_lens, _ in tqdm(dev_loader, desc="Validating"):
+            # making prediction on dev set and store the prediction
+            _, preds = model.forward(X, seq_lens)
+            golds = unpad_sequence(Y.cpu().numpy(), seq_lens)
+            dev_preds += preds
+            dev_golds += golds
+
+        # evaluate the dev score
+        dev_preds = convert_batch_sequence(dev_preds, tag_vocab)
+        dev_golds = convert_batch_sequence(dev_golds, tag_vocab)
+        dev_precision, dev_recall, dev_f1 = batch_evaluate(
+            dev_golds, dev_preds
+        )
+
+        # print the performance of current epoch
+        print(f"Epoch {epoch} Training Loss: {avg_train_epoch_loss}")
+        print(f"Epoch {epoch}  Dev F-1: {dev_f1}")
+        plot_losses(loss_ax, epoch, avg_train_epoch_losses)
+        loss_fig.savefig(f"{name}_loss.png")
+
+        # store the best model by evaluating the score
+        best_f1 = best_score[2]
+        if best_f1 < dev_f1:
+            no_improve_count = 0
+            best_score = (dev_precision, dev_recall, dev_f1)
+            torch.save(model.state_dict(), f"{name}.pt")
+        else:
+            # if not improving, early stop the training process
+            no_improve_count += 1
+            if no_improve_count >= EARLY_STOPPING_THRES and best_f1 > 0:
+                print("Not improving, early stopped!!")
+                break
+
+    model.load_state_dict(torch.load(f"{name}.pt"))
+    return (
+        model,
+        train_epoch_times,
+    )
+
+
+def init_loss_plot():
+    loss_fig, loss_ax = plt.subplots(1, 1, figsize=(15, 5))
+
+    # Plot the comparison between training time and batch size
+    loss_ax.set_xlabel("Epochs")
+    loss_ax.set_ylabel("Loss")
+    loss_ax.set_title("Train Loss over Epochs")
+    loss_ax.plot([], [], "r", label="train loss")
+
+    loss_ax.legend()
+    return loss_ax, loss_fig
+
+
+def plot_losses(loss_ax, epoch_num, avg_train_epoch_losses):
+    loss_ax.plot(
+        list(range(1, epoch_num + 1)),
+        avg_train_epoch_losses,
+        "r",
+        label="train loss",
+    )

@@ -1,48 +1,173 @@
-from models.model import BiLSTM_CRF
-from utils.helper import prepare_sequence, read_conll_file, build_vocab
-from torch.utils.data import DataLoader, Dataset
 import torch
-import torch.nn as nn
-import torch.optim as optim
-from config import START_TAG, STOP_TAG, EMBEDDING_DIM, HIDDEN_DIM
+import typer
+
+from experiment import experiment
 
 torch.manual_seed(1)
 
-def main():
-    files = {
-        "train": "A2-data/train",
-        "dev": "A2-data/dev",
-        "test": "A2-data/test"
-    }
+app = typer.Typer()
 
-    # Read data
-    train_data = read_conll_file(files["train"])
 
-    # Build vocabulary
-    word_to_ix, tag_to_ix = build_vocab(train_data)
-    
-    model = BiLSTM_CRF(len(word_to_ix), tag_to_ix, EMBEDDING_DIM, HIDDEN_DIM)
-    optimizer = optim.SGD(model.parameters(), lr=0.01, weight_decay=1e-4)
+@app.command()
+def bi_lstm_crf(
+    name,
+    emb_dim: int = 5,
+    hidden_dim: int = 4,
+    epoch_num: int = 2,
+    batch_size: int = 2,
+    lr: float = 0.01,
+    lamb: float = 1e-4,
+    resume: bool = False,
+    cost_val: int = 10,
+):
+    experiment(
+        emb_dim=emb_dim,
+        hidden_dim=hidden_dim,
+        epoch_num=epoch_num,
+        batch_size=batch_size,
+        lr=lr,
+        lamb=lamb,
+        name=name,
+        resume=resume,
+        cost_val=cost_val,
+    )
 
-    # Check predictions before training
-    with torch.no_grad():
-        precheck_sent = prepare_sequence(train_data[0][0], word_to_ix)
-        precheck_tags = torch.tensor([tag_to_ix[t] for t in train_data[0][1]], dtype=torch.long)
-        print(model(precheck_sent))
 
-    for epoch in range(30):  # Small number of epochs for quick test
-        for sentence, tags in train_data[:100]:  # Subset to avoid long training
-            model.zero_grad()
-            sentence_in = prepare_sequence(sentence, word_to_ix)
-            targets = torch.tensor([tag_to_ix[t] for t in tags], dtype=torch.long)
-            loss = model.neg_log_likelihood(sentence_in, targets)
-            loss.backward()
-            optimizer.step()
+@app.command()
+def bi_lstm_crf_char_cnn(
+    name,
+    emb_dim: int = 5,
+    char_emb_dim: int = 4,
+    stride: int = 2,
+    kernel: int = 2,
+    hidden_dim: int = 4,
+    epoch_num: int = 2,
+    batch_size: int = 2,
+    lr: float = 0.01,
+    lamb: float = 1e-4,
+    resume: bool = False,
+    cost_val: int = 10,
+):
+    experiment(
+        emb_dim=emb_dim,
+        char_emb_dim=char_emb_dim,
+        char_cnn_stride=stride,
+        char_cnn_kernel=kernel,
+        hidden_dim=hidden_dim,
+        epoch_num=epoch_num,
+        batch_size=batch_size,
+        lr=lr,
+        lamb=lamb,
+        name=name,
+        char_cnn=True,
+        resume=resume,
+        cost_val=cost_val,
+    )
 
-    with torch.no_grad():
-        print("After training:", model(precheck_sent))
 
+@app.command()
+def bi_lstm_crf_softmax_margin_loss(
+    name,
+    emb_dim: int = 5,
+    hidden_dim: int = 4,
+    epoch_num: int = 2,
+    batch_size: int = 2,
+    lr: float = 0.01,
+    lamb: float = 1e-4,
+    resume: bool = False,
+    cost_val: int = 10,
+):
+    experiment(
+        emb_dim=emb_dim,
+        hidden_dim=hidden_dim,
+        epoch_num=epoch_num,
+        batch_size=batch_size,
+        lr=lr,
+        lamb=lamb,
+        name=name,
+        loss="softmax_margin_loss",
+        resume=resume,
+        cost_val=cost_val,
+    )
+
+
+@app.command()
+def bi_lstm_crf_svm_loss(
+    name,
+    emb_dim: int = 5,
+    hidden_dim: int = 4,
+    epoch_num: int = 2,
+    batch_size: int = 2,
+    lr: float = 0.01,
+    lamb: float = 1e-4,
+    resume: bool = False,
+    cost_val: int = 10,
+):
+    experiment(
+        emb_dim=emb_dim,
+        hidden_dim=hidden_dim,
+        epoch_num=epoch_num,
+        batch_size=batch_size,
+        lr=lr,
+        lamb=lamb,
+        name=name,
+        loss="svm_loss",
+        resume=resume,
+        cost_val=cost_val,
+    )
+
+
+@app.command()
+def bi_lstm_crf_ramp_loss(
+    name,
+    emb_dim: int = 5,
+    hidden_dim: int = 4,
+    epoch_num: int = 2,
+    batch_size: int = 2,
+    lr: float = 0.01,
+    lamb: float = 1e-4,
+    resume: bool = False,
+    cost_val: int = 10,
+):
+    experiment(
+        emb_dim=emb_dim,
+        hidden_dim=hidden_dim,
+        epoch_num=epoch_num,
+        batch_size=batch_size,
+        lr=lr,
+        lamb=lamb,
+        name=name,
+        loss="ramp_loss",
+        resume=resume,
+        cost_val=cost_val,
+    )
+
+
+@app.command()
+def bi_lstm_crf_soft_ramp_loss(
+    name,
+    emb_dim: int = 5,
+    hidden_dim: int = 4,
+    epoch_num: int = 2,
+    batch_size: int = 2,
+    lr: float = 0.01,
+    lamb: float = 1e-4,
+    resume: bool = False,
+    cost_val: int = 10,
+):
+    experiment(
+        emb_dim=emb_dim,
+        hidden_dim=hidden_dim,
+        epoch_num=epoch_num,
+        batch_size=batch_size,
+        lr=lr,
+        lamb=lamb,
+        name=name,
+        loss="soft_ramp_loss",
+        resume=resume,
+        cost_val=cost_val,
+    )
 
 
 if __name__ == "__main__":
-    main()
+    app()
