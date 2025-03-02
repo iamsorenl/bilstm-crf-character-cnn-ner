@@ -6,12 +6,12 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 from torch.nn.utils.rnn import pad_sequence
 
-from config import START_TAG, STOP_TAG, PADDING, UNK_TOKEN, DEVICE
+from constants import START_TAG, STOP_TAG, PADDING, UNK_TOKEN, DEVICE
 
 random.seed(1)
 
 
-class NERDataset(Dataset):
+class BioDataset(Dataset):
     def __init__(self, data):
         self.X = []
         self.y = []
@@ -125,15 +125,15 @@ def get_max_word_len(word_vocab):
     return max_len
 
 
-print("Loading Data...")
+print("==================Loading Data=======================")
 # Make up some training data
-train_data = load_data("A2-data/train")[:]
-dev_data = load_data("A2-data/dev.answers")[:]
-test_data = load_data("A2-data/test_answers/test.answers")[:]
+train_data = load_data("A4-data/train")[:]
+dev_data = load_data("A4-data/dev.answers")[:]
+test_data = load_data("A4-data/test_answers/test.answers")[:]
 
-train_set = NERDataset(train_data)
-dev_set = NERDataset(dev_data)
-test_set = NERDataset(test_data)
+train_set = BioDataset(train_data)
+dev_set = BioDataset(dev_data)
+test_set = BioDataset(test_data)
 
 word_vocab = Vocab(train_set.X, base_map={PADDING: 0, UNK_TOKEN: 1})
 tag_vocab = Vocab(
@@ -219,45 +219,3 @@ def get_data_loader(batch_size: int = 1, set_name="train"):
             collate_fn=collate_batch,
             shuffle=False,
         )
-
-
-def get_sampled_data_loader(batch_size: int = 1, set_name="train"):
-    assert set_name in ["train", "dev", "test"]
-
-    sampled_train_data = sample(train_data, 20)
-
-    train_set = NERDataset(sampled_train_data)
-    dev_set = NERDataset(sampled_train_data)
-    test_set = NERDataset(sampled_train_data)
-
-    # use data loader for batching data
-    if set_name == "train":
-        return DataLoader(
-            dataset=train_set,
-            batch_size=batch_size,
-            collate_fn=collate_batch,
-            shuffle=False,
-        )
-    elif set_name == "dev":
-        return DataLoader(
-            dataset=dev_set,
-            batch_size=batch_size,
-            collate_fn=collate_batch,
-            shuffle=False,
-        )
-    else:
-        return DataLoader(
-            dataset=test_set,
-            batch_size=batch_size,
-            collate_fn=collate_batch,
-            shuffle=False,
-        )
-
-def save_predictions(filename, golds, preds):
-    """Save predictions to a file in the required format."""
-    with open(filename, "w") as f:
-        for gold_seq, pred_seq in zip(golds, preds):
-            for gold, pred in zip(gold_seq, pred_seq):
-                f.write(f"{gold} {pred}\n")
-            f.write("\n")  # Sentence separator
-            

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
-from config import START_TAG, STOP_TAG, DEVICE
+from constants import START_TAG, STOP_TAG, DEVICE
 from helper import argmax, log_sum_exp, hamming_loss, convert_to_char_tensor
 from data import tag_vocab, max_word_len, char_vocab, word_vocab
 
@@ -198,10 +198,8 @@ class BiLSTM_CRF(nn.Module):
 
             for next_tag in range(self.tagset_size):
                 # next_tag_var[i] holds the viterbi variable for tag i at the
-                # previous step, plus the score of transitioning
-                # from tag i to next_tag.
-                # We don't include the emission scores here because the max
-                # does not depend on them (we add them in below)
+                # previous step, plus the transition score from tag i to next_tag.
+                # Emission scores are added later as they don't affect the max calculation.
                 next_tag_var = None
                 if cost is not None:
                     # get the cost score
