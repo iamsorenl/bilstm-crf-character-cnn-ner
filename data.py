@@ -127,9 +127,9 @@ def get_max_word_len(word_vocab):
 
 print("==================Loading Data=======================")
 # Make up some training data
-train_data = load_data("A4-data/train")[:]
-dev_data = load_data("A4-data/dev.answers")[:]
-test_data = load_data("A4-data/test_answers/test.answers")[:]
+train_data = load_data("A2-data/train")[:]
+dev_data = load_data("A2-data/dev.answers")[:]
+test_data = load_data("A2-data/test_answers/test.answers")[:]
 
 train_set = BioDataset(train_data)
 dev_set = BioDataset(dev_data)
