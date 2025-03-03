@@ -11,7 +11,7 @@ from constants import START_TAG, STOP_TAG, PADDING, UNK_TOKEN, DEVICE
 random.seed(1)
 
 
-class BioDataset(Dataset):
+class NERDataset(Dataset):
     def __init__(self, data):
         self.X = []
         self.y = []
@@ -131,9 +131,9 @@ train_data = load_data("A2-data/train")[:]
 dev_data = load_data("A2-data/dev.answers")[:]
 test_data = load_data("A2-data/test_answers/test.answers")[:]
 
-train_set = BioDataset(train_data)
-dev_set = BioDataset(dev_data)
-test_set = BioDataset(test_data)
+train_set = NERDataset(train_data)
+dev_set = NERDataset(dev_data)
+test_set = NERDataset(test_data)
 
 word_vocab = Vocab(train_set.X, base_map={PADDING: 0, UNK_TOKEN: 1})
 tag_vocab = Vocab(

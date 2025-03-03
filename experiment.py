@@ -6,7 +6,7 @@ from evaluate import (
     inference,
     output_prediction,
     output_prediction_perl,
-    output_report,
+    #output_report,
     output_hyper_parameters,
     output_training_time,
     batch_evaluate,
@@ -80,41 +80,46 @@ def experiment(
         name=name,
         prev_best_score=prev_best_score,
     )
-
+    
     print("======================Evaluating Model=================")
     dev_all_input, dev_all_preds, dev_all_golds = inference(model, dev_loader)
-    dev_precision, dev_recall, dev_f1 = batch_evaluate(
-        dev_all_golds, dev_all_preds
-    )
+    #dev_precision, dev_recall, dev_f1 = batch_evaluate(
+    #    dev_all_golds, dev_all_preds
+    #)
 
     test_all_input, test_all_preds, test_all_golds = inference(
         model, test_loader
     )
-    test_precision, test_recall, test_f1 = batch_evaluate(
-        test_all_golds, test_all_preds
-    )
+    #test_precision, test_recall, test_f1 = batch_evaluate(
+    #    test_all_golds, test_all_preds
+    #)
 
     print(
-        "======================Output Prediction and Report================="
+        "======================Output Prediction========================"
     )
-    output_prediction(
-        dev_all_input, dev_all_preds, dev_all_golds, name=f"{name}.dev.pred"
+    #output_prediction(
+    #    dev_all_input, dev_all_preds, dev_all_golds, name=f"{name}.dev.pred"
+    #)
+    output_prediction_perl(
+        dev_all_input,
+        dev_all_preds,
+        name=f"{name}.dev.pred.perl",
     )
-    output_report(dev_precision, dev_recall, dev_f1, name=f"{name}.dev.report")
-    output_prediction(
-        test_all_input,
-        test_all_preds,
-        test_all_golds,
-        name=f"{name}.test.pred",
-    )
+    #output_report(dev_precision, dev_recall, dev_f1, name=f"{name}.dev.report")
+    #output_prediction(
+    #    test_all_input,
+    #    test_all_preds,
+    #    test_all_golds,
+    #    name=f"{name}.test.pred",
+    #)
     output_prediction_perl(
         test_all_input,
         test_all_preds,
         name=f"{name}.test.pred.perl",
     )
-    output_report(
-        test_precision, test_recall, test_f1, name=f"{name}.test.report"
-    )
+    #output_report(
+        #test_precision, test_recall, test_f1, name=f"{name}.test.report"
+    #)
 
     print("======================Output Hyperparameters=================")
     hp_map = {

@@ -13,16 +13,16 @@ def batch_evaluate(golds, preds, verbose=True):
 
     return evaluate(all_golds, all_preds, verbose)
 
-
 def evaluate(all_gold_tags, all_predicted_tags, verbose=True):
     return conllevaluate(all_gold_tags, all_predicted_tags, verbose)
-
 
 def inference(model, data_loader):
     all_input = []
     all_preds = []
     all_golds = []
     raw_inputs = data_loader.dataset.X
+    reordering = []
+
     for X, Y, seq_lens, indexes in tqdm(data_loader, desc="Inference"):
 
         # making prediction on dev set and store the prediction
@@ -33,11 +33,16 @@ def inference(model, data_loader):
         all_input += inputs
         all_preds += preds
         all_golds += golds
+        reordering += indexes.tolist()  # Collect original indices
 
-    all_preds = convert_batch_sequence(all_preds, tag_vocab)
-    all_golds = convert_batch_sequence(all_golds, tag_vocab)
-    return all_input, all_preds, all_golds
+    # Convert sequences back to original order
+    reordered = sorted(zip(reordering, all_input, all_preds, all_golds), key=lambda x: x[0])
+    all_input, all_preds, all_golds = zip(*reordered)
 
+    all_preds = convert_batch_sequence(list(all_preds), tag_vocab)
+    all_golds = convert_batch_sequence(list(all_golds), tag_vocab)
+    
+    return list(all_input), list(all_preds), list(all_golds)
 
 def output_prediction(all_input, all_preds, all_golds, name="model"):
     assert len(all_input) == len(all_preds)
@@ -76,13 +81,13 @@ def output_prediction_perl(all_input, all_preds, name="model"):
                 f.write(line)
             f.write("\n")
 
-
+'''
 def output_report(precision, recall, f1, name="model.dev.report"):
     report_df = pd.DataFrame(
         data={"precision": [precision], "recall": [recall], "f1": [f1]}
     )
     report_df.to_csv(name, index=False)
-
+'''
 
 def output_training_time(batch, avg_train_time, name="model.time"):
     output_df = pd.DataFrame(

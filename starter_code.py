@@ -1,7 +1,4 @@
-"""For debugging mini-batching by checking whether correctly calculate the loss during training
-https://pytorch.org/tutorials/beginner/nlp/advanced_tutorial.html#dynamic-versus-static-deep-learning-toolkits"""
-
-# Author: Robert Guthrie
+"""Source: https://pytorch.org/tutorials/beginner/nlp/advanced_tutorial.html#dynamic-versus-static-deep-learning-toolkits"""
 
 import torch
 import torch.autograd as autograd
