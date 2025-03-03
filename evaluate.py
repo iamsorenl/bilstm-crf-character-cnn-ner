@@ -2,11 +2,10 @@ import torch
 from tqdm import tqdm
 import pandas as pd
 
-#from conlleval import evaluate as conllevaluate
+from conlleval import evaluate as conllevaluate
 from helper import convert_batch_sequence, unpad_sequence
 from data import tag_vocab
 
-'''
 def batch_evaluate(golds, preds, verbose=True):
     all_golds = [tag for gold in golds for tag in gold]
     all_preds = [tag for pred in preds for tag in pred]
@@ -15,7 +14,6 @@ def batch_evaluate(golds, preds, verbose=True):
 
 def evaluate(all_gold_tags, all_predicted_tags, verbose=True):
     return conllevaluate(all_gold_tags, all_predicted_tags, verbose)
-'''
 
 def inference(model, data_loader):
     all_input = []
