@@ -4,12 +4,12 @@ import torch.optim as optim
 from model import BiLSTM_CRF
 from evaluate import (
     inference,
-    output_prediction,
+    #output_prediction,
     output_prediction_perl,
     #output_report,
     output_hyper_parameters,
     output_training_time,
-    batch_evaluate,
+    #batch_evaluate,
 )
 from train import train
 from data import (
@@ -37,7 +37,6 @@ def experiment(
     name="model",
     char_cnn=False,
     loss="log_loss",
-    resume=False,
     cost_val=10,
 ):
 
@@ -59,14 +58,6 @@ def experiment(
         loss=loss,
         cost=hamming_loss(loss_val=cost_val),
     ).to(DEVICE)
-
-    prev_best_score = None
-    if resume:
-        model.load_state_dict(torch.load(f"{name}.pt", map_location=DEVICE))
-        dev_all_input, dev_all_preds, dev_all_golds = inference(
-            model, dev_loader
-        )
-        prev_best_score = batch_evaluate(dev_all_golds, dev_all_preds)
     
     optimizer = optim.SGD(model.parameters(), lr=lr, weight_decay=lamb)
 
@@ -78,7 +69,6 @@ def experiment(
         dev_loader,
         epoch_num,
         name=name,
-        prev_best_score=prev_best_score,
     )
     
     print("======================Evaluating Model=================")
@@ -103,7 +93,7 @@ def experiment(
     output_prediction_perl(
         dev_all_input,
         dev_all_preds,
-        name=f"{name}.dev.pred.perl",
+        name=f"A2-data/{name}.dev.pred.perl",
     )
     #output_report(dev_precision, dev_recall, dev_f1, name=f"{name}.dev.report")
     #output_prediction(
@@ -115,7 +105,7 @@ def experiment(
     output_prediction_perl(
         test_all_input,
         test_all_preds,
-        name=f"{name}.test.pred.perl",
+        name=f"{name}A2-data/.test.pred.perl",
     )
     #output_report(
         #test_precision, test_recall, test_f1, name=f"{name}.test.report"

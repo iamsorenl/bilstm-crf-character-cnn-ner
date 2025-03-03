@@ -1,2 +1,0 @@
-emb_dim,hidden_dim,epoch_num,batch_size,lr,lamb
-5,4,2,2,0.01,0.0001
