@@ -5,19 +5,18 @@ from experiment import experiment
 # Set manual seed for reproducibility
 torch.manual_seed(1)
 
-def run_experiment(model_name, char_cnn=False, loss_type="crf_loss"):
+def run_experiment(model_name, char_cnn=False, loss_type="log_loss"):
     """Runs the BiLSTM-CRF experiment with specified settings."""
     print(f"Running {model_name} with loss type: {loss_type}")
 
     experiment(
-        emb_dim=5,
-        hidden_dim=4,
-        epoch_num=2,
-        batch_size=2,
-        lr=0.01,
+        emb_dim=100,
+        hidden_dim=256,
+        epoch_num=15,
+        batch_size=16,
+        lr=0.005,
         lamb=1e-4,
         name=model_name,
-        resume=False,
         cost_val=10,
         char_cnn=char_cnn,
         loss=loss_type,

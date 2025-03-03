@@ -1,0 +1,246 @@
+python main.py --model bi_lstm_crf_char_cnn --model_name cnn_two
+using cpu
+Running cnn_two with loss type: log_loss
+Training: 100%|█████████████████████████████████████████████████████████| 1160/1160 [10:13<00:00,  1.89it/s]
+Validating: 100%|█████████████████████████████████████████████████████████████| 7/7 [00:01<00:00,  5.20it/s]
+processed 2800 tokens with 203 phrases; found: 329 phrases; correct: 108.
+accuracy:  59.04%; (non-O)
+accuracy:  85.64%; precision:  32.83%; recall:  53.20%; FB1:  40.60
+              DNA: precision:   6.25%; recall:  16.67%; FB1:   9.09  16
+              RNA: precision:  37.50%; recall:  20.00%; FB1:  26.09  8
+        cell_line: precision:  14.29%; recall:  50.00%; FB1:  22.22  7
+        cell_type: precision:  43.90%; recall:  32.14%; FB1:  37.11  41
+          protein: precision:  33.07%; recall:  68.55%; FB1:  44.62  257
+Epoch 1 Training Loss: 6.591098742720045
+Epoch 1  Dev F-1: 40.6015037593985
+Training: 100%|█████████████████████████████████████████████████████████| 1160/1160 [10:19<00:00,  1.87it/s]
+Validating: 100%|█████████████████████████████████████████████████████████████| 7/7 [00:01<00:00,  5.79it/s]
+processed 2800 tokens with 203 phrases; found: 307 phrases; correct: 121.
+accuracy:  62.79%; (non-O)
+accuracy:  87.00%; precision:  39.41%; recall:  59.61%; FB1:  47.45
+              DNA: precision:   5.88%; recall:  16.67%; FB1:   8.70  17
+              RNA: precision:  50.00%; recall:  26.67%; FB1:  34.78  8
+        cell_line: precision:  25.00%; recall: 100.00%; FB1:  40.00  8
+        cell_type: precision:  49.02%; recall:  44.64%; FB1:  46.73  51
+          protein: precision:  39.91%; recall:  71.77%; FB1:  51.30  223
+Epoch 2 Training Loss: 3.6612497886304753
+Epoch 2  Dev F-1: 47.450980392156865
+Training: 100%|█████████████████████████████████████████████████████████| 1160/1160 [10:18<00:00,  1.88it/s]
+Validating: 100%|█████████████████████████████████████████████████████████████| 7/7 [00:01<00:00,  5.65it/s]
+processed 2800 tokens with 203 phrases; found: 296 phrases; correct: 127.
+accuracy:  64.03%; (non-O)
+accuracy:  88.00%; precision:  42.91%; recall:  62.56%; FB1:  50.90
+              DNA: precision:  18.75%; recall:  50.00%; FB1:  27.27  16
+              RNA: precision:  37.50%; recall:  20.00%; FB1:  26.09  8
+        cell_line: precision:  18.18%; recall: 100.00%; FB1:  30.77  11
+        cell_type: precision:  58.70%; recall:  48.21%; FB1:  52.94  46
+          protein: precision:  42.79%; recall:  74.19%; FB1:  54.28  215
+Epoch 3 Training Loss: 3.007658543510112
+Epoch 3  Dev F-1: 50.90180360721443
+Training: 100%|█████████████████████████████████████████████████████████| 1160/1160 [09:51<00:00,  1.96it/s]
+Validating: 100%|█████████████████████████████████████████████████████████████| 7/7 [00:01<00:00,  6.21it/s]
+processed 2800 tokens with 203 phrases; found: 328 phrases; correct: 121.
+accuracy:  61.75%; (non-O)
+accuracy:  86.39%; precision:  36.89%; recall:  59.61%; FB1:  45.57
+              DNA: precision:  23.08%; recall:  50.00%; FB1:  31.58  13
+              RNA: precision:  50.00%; recall:  20.00%; FB1:  28.57  6
+        cell_line: precision:  11.11%; recall: 100.00%; FB1:  20.00  18
+        cell_type: precision:  46.67%; recall:  37.50%; FB1:  41.58  45
+          protein: precision:  37.40%; recall:  74.19%; FB1:  49.73  246
+Epoch 4 Training Loss: 2.6016857059696377
+Epoch 4  Dev F-1: 45.5743879472693
+Training: 100%|█████████████████████████████████████████████████████████| 1160/1160 [10:22<00:00,  1.86it/s]
+Validating: 100%|█████████████████████████████████████████████████████████████| 7/7 [00:01<00:00,  5.82it/s]
+processed 2800 tokens with 203 phrases; found: 296 phrases; correct: 126.
+accuracy:  62.16%; (non-O)
+accuracy:  88.46%; precision:  42.57%; recall:  62.07%; FB1:  50.50
+              DNA: precision:  20.00%; recall:  50.00%; FB1:  28.57  15
+              RNA: precision:  37.50%; recall:  20.00%; FB1:  26.09  8
+        cell_line: precision:  16.67%; recall: 100.00%; FB1:  28.57  12
+        cell_type: precision:  52.08%; recall:  44.64%; FB1:  48.08  48
+          protein: precision:  43.66%; recall:  75.00%; FB1:  55.19  213
+Epoch 5 Training Loss: 2.311307198456495
+Epoch 5  Dev F-1: 50.50100200400801
+Training: 100%|█████████████████████████████████████████████████████████| 1160/1160 [10:30<00:00,  1.84it/s]
+Validating: 100%|█████████████████████████████████████████████████████████████| 7/7 [00:01<00:00,  5.65it/s]
+processed 2800 tokens with 203 phrases; found: 267 phrases; correct: 121.
+accuracy:  60.29%; (non-O)
+accuracy:  88.89%; precision:  45.32%; recall:  59.61%; FB1:  51.49
+              DNA: precision:  16.67%; recall:  50.00%; FB1:  25.00  18
+              RNA: precision:  50.00%; recall:  20.00%; FB1:  28.57  6
+        cell_line: precision:  15.38%; recall: 100.00%; FB1:  26.67  13
+        cell_type: precision:  57.14%; recall:  42.86%; FB1:  48.98  42
+          protein: precision:  47.34%; recall:  71.77%; FB1:  57.05  188
+Epoch 6 Training Loss: 2.0690428150596194
+Epoch 6  Dev F-1: 51.48936170212765
+Training: 100%|█████████████████████████████████████████████████████████| 1160/1160 [10:45<00:00,  1.80it/s]
+Validating: 100%|█████████████████████████████████████████████████████████████| 7/7 [00:01<00:00,  5.78it/s]
+processed 2800 tokens with 203 phrases; found: 311 phrases; correct: 120.
+accuracy:  59.67%; (non-O)
+accuracy:  87.43%; precision:  38.59%; recall:  59.11%; FB1:  46.69
+              DNA: precision:  30.77%; recall:  66.67%; FB1:  42.11  13
+              RNA: precision:  12.50%; recall:   6.67%; FB1:   8.70  8
+        cell_line: precision:  10.53%; recall: 100.00%; FB1:  19.05  19
+        cell_type: precision:  53.19%; recall:  44.64%; FB1:  48.54  47
+          protein: precision:  39.29%; recall:  70.97%; FB1:  50.57  224
+Epoch 7 Training Loss: 1.8588504104260475
+Epoch 7  Dev F-1: 46.69260700389105
+Training: 100%|█████████████████████████████████████████████████████████| 1160/1160 [10:40<00:00,  1.81it/s]
+Validating: 100%|█████████████████████████████████████████████████████████████| 7/7 [00:01<00:00,  5.85it/s]
+processed 2800 tokens with 203 phrases; found: 286 phrases; correct: 113.
+accuracy:  59.04%; (non-O)
+accuracy:  87.82%; precision:  39.51%; recall:  55.67%; FB1:  46.22
+              DNA: precision:  30.77%; recall:  66.67%; FB1:  42.11  13
+              RNA: precision:  12.50%; recall:   6.67%; FB1:   8.70  8
+        cell_line: precision:  11.76%; recall: 100.00%; FB1:  21.05  17
+        cell_type: precision:  50.00%; recall:  39.29%; FB1:  44.00  44
+          protein: precision:  41.18%; recall:  67.74%; FB1:  51.22  204
+Epoch 8 Training Loss: 1.6852188737701215
+Epoch 8  Dev F-1: 46.21676891615542
+Training: 100%|█████████████████████████████████████████████████████████| 1160/1160 [10:41<00:00,  1.81it/s]
+Validating: 100%|█████████████████████████████████████████████████████████████| 7/7 [00:01<00:00,  5.80it/s]
+processed 2800 tokens with 203 phrases; found: 308 phrases; correct: 116.
+accuracy:  56.76%; (non-O)
+accuracy:  86.89%; precision:  37.66%; recall:  57.14%; FB1:  45.40
+              DNA: precision:  21.43%; recall:  50.00%; FB1:  30.00  14
+              RNA: precision:  14.29%; recall:   6.67%; FB1:   9.09  7
+        cell_line: precision:   5.26%; recall:  50.00%; FB1:   9.52  19
+        cell_type: precision:  49.02%; recall:  44.64%; FB1:  46.73  51
+          protein: precision:  39.63%; recall:  69.35%; FB1:  50.44  217
+Epoch 9 Training Loss: 1.5222442421881779
+Epoch 9  Dev F-1: 45.40117416829746
+Training: 100%|█████████████████████████████████████████████████████████| 1160/1160 [10:49<00:00,  1.79it/s]
+Validating: 100%|█████████████████████████████████████████████████████████████| 7/7 [00:01<00:00,  5.80it/s]
+processed 2800 tokens with 203 phrases; found: 259 phrases; correct: 108.
+accuracy:  56.13%; (non-O)
+accuracy:  88.00%; precision:  41.70%; recall:  53.20%; FB1:  46.75
+              DNA: precision:  27.27%; recall:  50.00%; FB1:  35.29  11
+              RNA: precision:  11.11%; recall:   6.67%; FB1:   8.33  9
+        cell_line: precision:   5.26%; recall:  50.00%; FB1:   9.52  19
+        cell_type: precision:  48.94%; recall:  41.07%; FB1:  44.66  47
+          protein: precision:  46.24%; recall:  64.52%; FB1:  53.87  173
+Epoch 10 Training Loss: 1.367219259936126
+Epoch 10  Dev F-1: 46.75324675324675
+Inference: 100%|██████████████████████████████████████████████████████████████| 7/7 [00:01<00:00,  5.85it/s]
+Inference: 100%|██████████████████████████████████████████████████████████| 241/241 [00:45<00:00,  5.32it/s]
+Output prediction for dev set saved to A2-data/cnn_two.dev.pred.perl
+Output prediction for test set saved to A2-data/cnn_two.test.pred.perl
+Output hyperparameters saved to cnn_two.hp
+(venv) (base) Soren@eduroam-bowers-128-114-154-82 bilstm-crf-character-cnn-ner % cd A2-data
+(venv) (base) Soren@eduroam-bowers-128-114-154-82 A2-data % ./evalIOB2.pl dev.answers cnn_two.dev.pred.perl
+
+[Tagging Performance]
+# of tags: 2800,         correct tags: 2458,     correct IOBs: 2493
+precision with class info: 0.8779,       w/o class info: 0.8904
+
+[Object Identification Performance]
+# of OBJECTs: 203,       ANSWERs: 278.
+
+# (recall / precision / f-score) of ...
+     FULLY CORRECT answer with class info: 121 (0.5961 / 0.4353 / 0.5031),
+    correct LEFT boundary with class info: 144 (0.7094 / 0.5180 / 0.5988),
+   correct RIGHT boundary with class info: 141 (0.6946 / 0.5072 / 0.5863),
+
+
+[<cell_type> Identification Performance]
+# of OBJECTs: 56,        ANSWERs: 45.
+
+# (recall / precision / f-score) of ...
+     FULLY CORRECT answer with class info: 26 (0.4643 / 0.5778 / 0.5149),
+    correct LEFT boundary with class info: 30 (0.5357 / 0.6667 / 0.5941),
+   correct RIGHT boundary with class info: 33 (0.5893 / 0.7333 / 0.6535),
+
+
+[<protein> Identification Performance]
+# of OBJECTs: 124,       ANSWERs: 195.
+
+# (recall / precision / f-score) of ...
+     FULLY CORRECT answer with class info: 88 (0.7097 / 0.4513 / 0.5517),
+    correct LEFT boundary with class info: 107 (0.8629 / 0.5487 / 0.6708),
+   correct RIGHT boundary with class info: 94 (0.7581 / 0.4821 / 0.5893),
+
+
+[<DNA> Identification Performance]
+# of OBJECTs: 6,         ANSWERs: 18.
+
+# (recall / precision / f-score) of ...
+     FULLY CORRECT answer with class info: 3 (0.5000 / 0.1667 / 0.2500),
+    correct LEFT boundary with class info: 3 (0.5000 / 0.1667 / 0.2500),
+   correct RIGHT boundary with class info: 6 (1.0000 / 0.3333 / 0.5000),
+
+
+[<cell_line> Identification Performance]
+# of OBJECTs: 2,         ANSWERs: 12.
+
+# (recall / precision / f-score) of ...
+     FULLY CORRECT answer with class info: 2 (1.0000 / 0.1667 / 0.2857),
+    correct LEFT boundary with class info: 2 (1.0000 / 0.1667 / 0.2857),
+   correct RIGHT boundary with class info: 2 (1.0000 / 0.1667 / 0.2857),
+
+
+[<RNA> Identification Performance]
+# of OBJECTs: 15,        ANSWERs: 8.
+
+# (recall / precision / f-score) of ...
+     FULLY CORRECT answer with class info: 2 (0.1333 / 0.2500 / 0.1739),
+    correct LEFT boundary with class info: 2 (0.1333 / 0.2500 / 0.1739),
+   correct RIGHT boundary with class info: 6 (0.4000 / 0.7500 / 0.5217),
+
+(venv) (base) Soren@eduroam-bowers-128-114-154-82 A2-data % ./evalIOB2.pl test_answers/test.answers cnn_two.test.pred.perl
+
+[Tagging Performance]
+# of tags: 101039,       correct tags: 91002,    correct IOBs: 92603
+precision with class info: 0.9007,       w/o class info: 0.9165
+
+[Object Identification Performance]
+# of OBJECTs: 8662,      ANSWERs: 10022.
+
+# (recall / precision / f-score) of ...
+     FULLY CORRECT answer with class info: 5960 (0.6881 / 0.5947 / 0.6380),
+    correct LEFT boundary with class info: 6391 (0.7378 / 0.6377 / 0.6841),
+   correct RIGHT boundary with class info: 6741 (0.7782 / 0.6726 / 0.7216),
+
+
+[<DNA> Identification Performance]
+# of OBJECTs: 1056,      ANSWERs: 1145.
+
+# (recall / precision / f-score) of ...
+     FULLY CORRECT answer with class info: 675 (0.6392 / 0.5895 / 0.6134),
+    correct LEFT boundary with class info: 711 (0.6733 / 0.6210 / 0.6461),
+   correct RIGHT boundary with class info: 786 (0.7443 / 0.6865 / 0.7142),
+
+
+[<cell_type> Identification Performance]
+# of OBJECTs: 1921,      ANSWERs: 1514.
+
+# (recall / precision / f-score) of ...
+     FULLY CORRECT answer with class info: 1152 (0.5997 / 0.7609 / 0.6707),
+    correct LEFT boundary with class info: 1175 (0.6117 / 0.7761 / 0.6841),
+   correct RIGHT boundary with class info: 1302 (0.6778 / 0.8600 / 0.7581),
+
+
+[<protein> Identification Performance]
+# of OBJECTs: 5067,      ANSWERs: 6370.
+
+# (recall / precision / f-score) of ...
+     FULLY CORRECT answer with class info: 3745 (0.7391 / 0.5879 / 0.6549),
+    correct LEFT boundary with class info: 4087 (0.8066 / 0.6416 / 0.7147),
+   correct RIGHT boundary with class info: 4189 (0.8267 / 0.6576 / 0.7325),
+
+
+[<RNA> Identification Performance]
+# of OBJECTs: 118,       ANSWERs: 116.
+
+# (recall / precision / f-score) of ...
+     FULLY CORRECT answer with class info: 76 (0.6441 / 0.6552 / 0.6496),
+    correct LEFT boundary with class info: 78 (0.6610 / 0.6724 / 0.6667),
+   correct RIGHT boundary with class info: 88 (0.7458 / 0.7586 / 0.7521),
+
+
+[<cell_line> Identification Performance]
+# of OBJECTs: 500,       ANSWERs: 877.
+
+# (recall / precision / f-score) of ...
+     FULLY CORRECT answer with class info: 312 (0.6240 / 0.3558 / 0.4532),
+    correct LEFT boundary with class info: 340 (0.6800 / 0.3877 / 0.4938),
+   correct RIGHT boundary with class info: 376 (0.7520 / 0.4287 / 0.5461),

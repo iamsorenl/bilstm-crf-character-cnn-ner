@@ -1,4 +1,3 @@
-import torch
 from tqdm import tqdm
 import pandas as pd
 
@@ -36,14 +35,14 @@ def inference(model, data_loader):
 
     # Convert sequences back to original order
     reordered = sorted(zip(reordering, all_input, all_preds, all_golds), key=lambda x: x[0])
-    all_input, all_preds, all_golds = zip(*reordered)
+    _, all_input, all_preds, all_golds = zip(*reordered)
 
     all_preds = convert_batch_sequence(list(all_preds), tag_vocab)
     all_golds = convert_batch_sequence(list(all_golds), tag_vocab)
     
     return list(all_input), list(all_preds), list(all_golds)
 
-def output_prediction(all_input, all_preds, all_golds, name="model"):
+def output_prediction_with_gold_label(all_input, all_preds, all_golds, name="model"):
     assert len(all_input) == len(all_preds)
     assert len(all_input) == len(all_golds)
 
@@ -79,14 +78,6 @@ def output_prediction_perl(all_input, all_preds, name="model"):
                 line = f"{token}\t{preds[j]}\n"
                 f.write(line)
             f.write("\n")
-
-'''
-def output_report(precision, recall, f1, name="model.dev.report"):
-    report_df = pd.DataFrame(
-        data={"precision": [precision], "recall": [recall], "f1": [f1]}
-    )
-    report_df.to_csv(name, index=False)
-'''
 
 def output_training_time(batch, avg_train_time, name="model.time"):
     output_df = pd.DataFrame(

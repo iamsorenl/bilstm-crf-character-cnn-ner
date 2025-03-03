@@ -124,8 +124,6 @@ def get_max_word_len(word_vocab):
         max_len = max(max_len, len(val))
     return max_len
 
-
-print("==================Loading Data=======================")
 # Make up some training data
 train_data = load_data("A2-data/train")[:]
 dev_data = load_data("A2-data/dev.answers")[:]
