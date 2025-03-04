@@ -1,4 +1,3 @@
-import torch
 import torch.optim as optim
 
 from model import BiLSTM_CRF

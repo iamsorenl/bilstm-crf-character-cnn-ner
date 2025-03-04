@@ -172,3 +172,8 @@ cython_debug/
 
 # macOS
 .DS_Store
+
+# ignore pt, hp, time files
+*.pt
+*.hp
+*.time

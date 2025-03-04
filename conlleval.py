@@ -1,4 +1,6 @@
 """
+Script adapted from: https://github.com/sighsmile/conlleval/tree/master
+
 This script applies to IOB2 or IOBES tagging scheme.
 If you are using a different scheme, please convert to IOB2 or IOBES.
 

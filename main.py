@@ -12,8 +12,8 @@ def run_experiment(model_name, char_cnn=False, loss_type="log_loss"):
     experiment(
         emb_dim=100,
         hidden_dim=256,
-        epoch_num=15,
-        batch_size=16,
+        epoch_num=10,
+        batch_size=8,
         lr=0.005,
         lamb=1e-4,
         name=model_name,
